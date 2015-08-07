@@ -1,15 +1,16 @@
-import os.path
+import os.path, sys
 
 import datetime
 
 import scipy.io
+import netCDF4
+import xray
 
 import numpy  as np
 import pandas as pd
 
-import netCDF4
-
 from .. utils import swantime2datetime
+
 
 class SwanIO:
 
@@ -83,24 +84,17 @@ class SwanIO:
 	def read_swanspc(self,fname):
 
 		"""
-		    Use this function to read data generated with the SPECOUT command.
+		    Function to read data generated with the SPECOUT command.
 
 		    The sixtase MUST be :
 		    'SPECOUT 'Location' SPEC2D ABS 'name.spc'
 
 		    Read the documentation in http://swanmodel.sourceforge.net to more details on spectral output.
 
-		    Inputs
-		    fname:    the name of the file
-		    swantime: a date and time string in swans's format
+		    Inputs:
+		    	fname:    the name of the file
 
-		    Outputs
-		    lon:     longitude of the point
-		    lat:     latitude of the point
-		    freqs:   list of frequenciess
-		    dirs:    list of directions
-			times:   list of all times
-		    spectra: array with spectral data [time,frequencies,directions]
+		    returns a xray DataArray
 		"""
 
 		# I/O check
@@ -132,8 +126,6 @@ class SwanIO:
 					if i >= start and i <= end:
 						ds = l.split()[0]
 						dirs.append(float(ds))
-			# if l > 300: break
-
 		# Dates
 		dates = []
 		with open(fname, 'r') as f:
@@ -166,69 +158,121 @@ class SwanIO:
 					spectra = np.reshape(values,(nfreqs,ndirs))
 					spectrum[t,:,:] = spectra
 
-		return lat,lon,freqs,dirs,times,factors,spectrum
+		# Xray DataSet
+		ds = xray.Dataset()
 
-	def read_swanblock(self,fname,var,stat=False):
+		ds.coords['times']          = times
+		ds.coords['reference_time'] = datetime.datetime(2000,1,1,0,0)
+		ds.coords['freq']           = freqs
+		ds.coords['dir']            = dirs
+		ds["factors"]               = (('time'), factors)
+		ds["spectrum"]              = (('time', 'freq', 'dir'), spectrum)
+
+
+		return ds
+
+	def read_swanblock(self,fname,variables,stat=False):
 
 		"""
-			Function to read SWAN's BLOCK output statement. Both stationary
-			and non-stationary versions can be handled there. If requesting
-			a non-stationary output a proper date string should be given.
-			In case of non-stationary data with no dates, such as XP or YP,
-			just call the function as if it were stationary.
-			will return a numpy array with [Xp,Yp] dimension.
-		"""
+			Function to read SWAN's BLOCK output statement.
+			Both stationary and non-stationary versions can be handle.
 
-		# Reading this data causes to some useless warnings to be printed,
-		# removing it using "brute-force"
-		import warnings
-		warnings.filterwarnings("ignore")
+			inputs :
+				fname     = full name of the block file
+				variables = list of variables to be read
+				stat      = Whether stationary block or nor, default is False
+
+			Obs: Curvilinear grids can't be read yet.
+
+			Returns a xray DataSet
+		"""
 
 		# I/O check
 		self.iocheck(fname)
 
 		block = scipy.io.loadmat(fname)
 		keys  = block.keys()
+		fmt   = "_%Y%m%d_%H%M%S"
 
+		# Keys check:
+		ukeys = []
+		for k in keys:
+			if k not in ["__header__","__globals__","__version__","Xp","Yp"]:
+				ukeys.append(k.split("_")[0])
+		ukeys = np.unique(ukeys)
+
+		wndx = "Windv_x" # Wind exception
+		wndy = "Windv_y" # Wind exception
+		if "Windv" in ukeys:
+			if wndx in variables:
+				ukeys = np.hstack([ukeys,wndx])
+			if wndy in variables:
+				ukeys = np.hstack([ukeys,wndy])
+		a = np.where(ukeys=="Windv")[0]
+		ukeys[a] = ""
+
+
+		for var in variables:
+			if var not in ukeys:
+				raise ValueError('Key \"{}\" not present in {}'.format(var,fname))
+
+		# Dates
 		if stat:
-			times = 0
-			for key in keys:
-				if var in keys:
-					x = block["Xp"]
-					y = block["Yp"]
-					x = np.linspace(x.min(),x.max(),x.shape[1])
-					y = np.linspace(y.min(),y.max(),y.shape[0])
-					z   = scipy.io.loadmat(fname)[var]
-					return x,y,times,z
-				else:
-					raise ValueError('It seems the variable requested is \
-						                  not present in the file.')
-
+			pass
 		else:
-			# digging the data
 			dates = []
+			var = variables[0]
 			for key in keys:
-				if var in key.split("_")[0]:
-					date = key.split("_")[1]+"."+key.split("_")[2]
-					dates.append(date)
+				if key not in ["__header__","__globals__","__version__","Xp","Yp"]:
+					if var not in [wndx,wndy]:
+						if var in key.split("_")[0]:
+							date = key.split("_")[1]+"."+key.split("_")[2]
+							dates.append(date)
+					else:
+						if "Windv_x" in key.split("_"):
+							date = key.split("_")[2]+"."+key.split("_")[3]
+							dates.append(date)
+			# dates=np.unique(dates)
 
-			times  = np.sort(swantime2datetime(dates))
-			ntimes = len(times)
+		ds = xray.Dataset()
 
-			# geometry
-			x = block["Xp"]
-			y = block["Yp"]
-			x = np.linspace(x.min(),x.max(),x.shape[1])
-			y = np.linspace(y.min(),y.max(),y.shape[0])
+		for v, var in enumerate(variables):
 
-			# output
-			blockout = np.ones([ntimes,len(y),len(x)])
-			fmt       = "_%Y%m%d_%H%M%S"
-			for t,time in enumerate(times):
-				keyname = var+time.strftime(fmt)
-				z       = block[keyname]
-				blockout[t,:,:] = z
-			return x,y,times,blockout
+			if v == 0:
+				# Times
+				if stat:
+					pass
+				else:
+					ts = swantime2datetime(dates)
+					nt = len(ts)
+				# Geometry:
+				x = block["Xp"][0,:]
+				y = block["Yp"][:,0]
+				nx = x.shape[0]
+				ny = y.shape[0]
+
+				if stat:
+					ds.coords['x']              = ('x', x)
+					ds.coords['y']              = ('y', y)
+				else:
+					ds.coords['x']              = ('x', x)
+					ds.coords['y']              = ('y', y)
+					ds.coords['time']           = ts
+					ds.coords['reference_time'] = pd.Timestamp('2000-01-01')
+
+			# Data :
+			if stat:
+				B = block[var].T
+				ds[var] = (('x', 'y'), B)
+			else:
+				B = np.ones([nt,nx,ny])
+				for t,time in enumerate(ts):
+					keyname  = var+time.strftime(fmt)
+					b        = block[keyname]
+					B[t,:,:] = b.T
+					ds[var] = (('time', 'x', 'y'), B)
+
+		return ds
 
 
 	def write_spectrum(self,fname,lat,lon,times,freqs,dirs,facs,spc):
