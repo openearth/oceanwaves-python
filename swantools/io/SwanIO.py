@@ -161,8 +161,8 @@ class SwanIO:
 		# Xray DataSet
 		ds = xray.Dataset()
 
-		ds.coords['times']          = times
-		ds.coords['reference_time'] = datetime.datetime(2000,1,1,0,0)
+		ds.coords['times']          = pd.DatetimeIndex(times)
+		ds.coords['reference_time'] = pd.Timestamp('2000-01-01')
 		ds.coords['freq']           = freqs
 		ds.coords['dir']            = dirs
 		ds["factors"]               = (('time'), factors)
@@ -243,7 +243,7 @@ class SwanIO:
 				if stat:
 					pass
 				else:
-					ts = swantime2datetime(dates)
+					ts = np.sort(swantime2datetime(dates))
 					nt = len(ts)
 				# Geometry:
 				x = block["Xp"][0,:]
@@ -257,7 +257,7 @@ class SwanIO:
 				else:
 					ds.coords['x']              = ('x', x)
 					ds.coords['y']              = ('y', y)
-					ds.coords['time']           = ts
+					ds.coords['time']           = pd.DatetimeIndex(ts)
 					ds.coords['reference_time'] = pd.Timestamp('2000-01-01')
 
 			# Data :
