@@ -41,6 +41,11 @@ class OceanWaves(xr.Dataset):
     The class supports all convenient properties of an xarray.Dataset,
     like writing to netCDF or converting to pandas.DataFrame.
 
+    TODO:
+    - improve plotting routines
+    - add phase functions to use with tides: phase estimates, phase
+      interpolation, etc.
+
     '''
 
 
