@@ -6,8 +6,8 @@ import scipy.integrate
 import scipy.interpolate
 from collections import OrderedDict
 
-from units import simplify
-import plot
+from .units import simplify
+from .plot import spectrum2d
 
 
 # initialize logger
@@ -28,8 +28,8 @@ class OceanWaves(xr.Dataset):
     directions can be computed using dedicated methods.
 
     The class automatically converts locations from a local coordinate
-    reference level to lat/lon coordinates, if the local coordinate
-    reference level is specified.
+    reference system to lat/lon coordinates, if the local coordinate
+    reference system is specified.
 
     The class interpretates combined variable units and simplifies the
     result to practical entities.
@@ -96,7 +96,7 @@ class OceanWaves(xr.Dataset):
         '''
         
         coords = OrderedDict()
-        variables = OrderedDict()
+        data_vars = OrderedDict()
 
         # simplify units
         times_units = simplify(times_units)
@@ -116,17 +116,17 @@ class OceanWaves(xr.Dataset):
                                               np.arange(len(locations)))
             
             x, y = zip(*locations)
-            variables['x']      = xr.Variable('location',
+            data_vars['x']      = xr.Variable('location',
                                               np.asarray(x),
                                               attrs=dict(units=locations_units))
-            variables['y']      = xr.Variable('location',
+            data_vars['y']      = xr.Variable('location',
                                               np.asarray(y),
                                               attrs=dict(units=locations_units))
                 
-            variables['lat']    = xr.Variable('location',
+            data_vars['lat']    = xr.Variable('location',
                                               np.asarray(x) + np.nan,
                                               attrs=dict(units='degN'))
-            variables['lon']    = xr.Variable('location',
+            data_vars['lon']    = xr.Variable('location',
                                               np.asarray(y) + np.nan,
                                               attrs=dict(units='degE'))
 
@@ -144,16 +144,19 @@ class OceanWaves(xr.Dataset):
         shp = tuple([len(c) for c in coords.itervalues()])
 
         # initialize energy variable
-        variables['energy']     = xr.DataArray(np.nan + np.zeros(shp),
+        data_vars['energy']     = xr.DataArray(np.nan + np.zeros(shp),
                                                coords=coords,
                                                attrs=dict(units=energy_units))
         
         # initialize empty object
-        super(OceanWaves, self).__init__(data_vars=variables, coords=coords, attrs=attrs, **kwargs)
+        super(OceanWaves, self).__init__(data_vars=data_vars,
+                                         coords=coords,
+                                         attrs=attrs,
+                                         **kwargs)
 
         # set wave energy
         if energy is not None:
-            self.energy = energy
+            self.variables['energy'] = energy
 
         # convert coordinates
         self.convert_coordinates(crs)
@@ -386,114 +389,123 @@ class OceanWaves(xr.Dataset):
             return xr.DataArray(m, coords=coords, attrs=dict(units=units))
 
 
-    def plot(self, figsize=None, **kwargs):
-        '''Plot data in raster of subplots
+    @property
+    def plot(self):
 
-        '''
+#        if self.has_dimension('direction'):
+#            return SpectralPlotMethods(self.data_vars['energy'])
+#        else:
+        return self.data_vars['energy'].plot
 
-        # determine number of subplots
-        nx, ny = 1, 1
+    
+#    def plot(self, figsize=None, **kwargs):
+#        '''Plot data in raster of subplots
+#
+#        '''
+#
+#        # determine number of subplots
+#        nx, ny = 1, 1
+#        
+#        if self.has_dimension('time'):
+#            nx = len(self.variables['time'])
+#        if self.has_dimension('location'):
+#            ny = len(self.variables['location'])
+#
+#        # create figure object
+#        if self.has_dimension('direction'):
+#            axs = plot.create_figure(ny, nx, figsize=figsize,
+#                                     subplot_kw=dict(projection='polar'), squeeze=False)
+#        else:
+#            axs = plot.create_figure(ny, nx, figsize=figsize, squeeze=False)
+#
+#        # plot
+#        for i in range(ny):
+#            for j in range(nx):
+#
+#                # select energy subset
+#                ix = {}
+#                if self.has_dimension('time'):
+#                    ix['time'] = j
+#                if self.has_dimension('location'):
+#                    ix['location'] = i
+#
+#                E = self.variables['energy'][ix]
+#
+#                if self.has_dimension('direction'):
+#
+#                    # polar plot
+#                    plot.spectrum2d(self.variables['frequency'],
+#                                    self.variables['direction'],
+#                                    E, ax=axs[i,j], **kwargs)
+#                    
+#                else:
+#
+#                    # spectral plot
+#                    plot.spectrum1d(self.variables['frequency'],
+#                                    E, ax=axs[i,j], **kwargs)
+#
+#                # set labels
+#                if i < ny-1:
+#                    axs[i,j].set_xlabel('')
+#                if j > 0:
+#                    axs[i,j].set_ylabel('')
+#
+#                # set titles
+#                if self.has_dimension('time') and i == 0:
+#                    axs[i,j].set_title(self.variables['time'][j].values)
+#                if self.has_dimension('location') and j == nx-1:
+#                    axs[i,j].set_title(self.variables['location'][i].values, loc='right')
+#
+#        return axs
+                    
         
-        if self.has_dimension('time'):
-            nx = len(self.variables['time'])
-        if self.has_dimension('location'):
-            ny = len(self.variables['location'])
-
-        # create figure object
-        if self.has_dimension('direction'):
-            axs = plot.create_figure(ny, nx, figsize=figsize,
-                                     subplot_kw=dict(projection='polar'), squeeze=False)
-        else:
-            axs = plot.create_figure(ny, nx, figsize=figsize, squeeze=False)
-
-        # plot
-        for i in range(ny):
-            for j in range(nx):
-
-                # select energy subset
-                ix = {}
-                if self.has_dimension('time'):
-                    ix['time'] = j
-                if self.has_dimension('location'):
-                    ix['location'] = i
-
-                E = self.variables['energy'][ix]
-
-                if self.has_dimension('direction'):
-
-                    # polar plot
-                    plot.polar(self.variables['frequency'],
-                               self.variables['direction'],
-                               E, ax=axs[i,j], **kwargs)
-                    
-                else:
-
-                    # spectral plot
-                    plot.spectrum(self.variables['frequency'],
-                                  E, ax=axs[i,j], **kwargs)
-
-                # set labels
-                if i < ny-1:
-                    axs[i,j].set_xlabel('')
-                if j > 0:
-                    axs[i,j].set_ylabel('')
-
-                # set titles
-                if self.has_dimension('time') and i == 0:
-                    axs[i,j].set_title(self.variables['time'][j].values)
-                if self.has_dimension('location') and j == nx-1:
-                    axs[i,j].set_title(self.variables['location'][i].values, loc='right')
-
-        return axs
-                    
-        
-    def plot_map(self, size=.1, time=0, ax=None, figsize=None, **kwargs):
-        '''Plot data on map
-
-        '''
-
-        if self.has_dimension('location', raise_error=True):
-
-            x = self.variables['x']
-            y = self.variables['y']
-
-            ax = plot.create_figure(ax=ax, figsize=figsize, extent=(x, y))
-            fig = ax.get_figure()
-            axs = [ax]
-
-            # select energy subset
-            ix = {}
-            if self.has_dimension('time'):
-                ix['time'] = time
-                
-            for i in range(len(self.variables['location'])):
-
-                ix['location'] = i
-                E = self.variables['energy'][ix]
-
-                # determine subplot position
-                pos = axs[0].transData.transform((x[i], y[i]))
-                pos = fig.transFigure.inverted().transform(pos)
-                rect = list(pos-.5*size) + [size, size]
-
-                if self.has_dimension('direction'):
-
-                    # polar plot
-                    ax = fig.add_axes(rect, projection='polar')
-                    plot.polar(self.variables['frequency'],
-                               self.variables['direction'],
-                               E, ax=ax, **kwargs)
-                    
-                else:
-
-                    # spectral plot
-                    ax = fig.add_axes(rect)
-                    plot.spectrum(self.variables['frequency'],
-                                  E, ax=ax, **kwargs)
-
-                axs.append(ax)
-
-            return axs
+#    def plot_map(self, size=.1, time=0, ax=None, figsize=None, **kwargs):
+#        '''Plot data on map
+#
+#        '''
+#
+#        if self.has_dimension('location', raise_error=True):
+#
+#            x = self.variables['x']
+#            y = self.variables['y']
+#
+#            ax = plot.create_figure(ax=ax, figsize=figsize, extent=(x, y))
+#            fig = ax.get_figure()
+#            axs = [ax]
+#
+#            # select energy subset
+#            ix = {}
+#            if self.has_dimension('time'):
+#                ix['time'] = time
+#                
+#            for i in range(len(self.variables['location'])):
+#
+#                ix['location'] = i
+#                E = self.variables['energy'][ix]
+#
+#                # determine subplot position
+#                pos = axs[0].transData.transform((x[i], y[i]))
+#                pos = fig.transFigure.inverted().transform(pos)
+#                rect = list(pos-.5*size) + [size, size]
+#
+#                if self.has_dimension('direction'):
+#
+#                    # polar plot
+#                    ax = fig.add_axes(rect, projection='polar')
+#                    plot.spectrum2d(self.variables['frequency'],
+#                                    self.variables['direction'],
+#                                    E, ax=ax, **kwargs)
+#                    
+#                else:
+#
+#                    # spectral plot
+#                    ax = fig.add_axes(rect)
+#                    plot.spectrum1d(self.variables['frequency'],
+#                                    E, ax=ax, **kwargs)
+#
+#                axs.append(ax)
+#
+#            return axs
 
         
     @property
@@ -570,3 +582,5 @@ class OceanWaves(xr.Dataset):
                 self.variables['lon'].values = lon
 
 
+
+    

@@ -1,5 +1,19 @@
 import re
+import logging
 import numpy as np
+
+
+# regular expressions
+RE_OPERATORS = r'\s*([ \*\/\+\-\^])\s*'
+RE_TERMS = r'([^\^])([\+\-])'
+RE_GROUPS = r'\/?\(([^\(\)]+?)\)'
+RE_NUMBER = r'[\+\-\d\.]+'
+RE_VARIABLE = r'[a-zA-Z]+'
+RE_EXPONENTS = r'([^a-zA-Z])?(%s(\^[\+\-\d\.]+)*)'
+RE_EXPONENTS_MISSING = r'([a-zA-Z])([\-\+\d\.]+)'
+
+# initialize logger
+logger = logging.getLogger(__name__)
 
 
 def simplify(units):
@@ -30,12 +44,15 @@ def simplify(units):
         return format(parts)
         
         
-    # remove spaces
-    units.replace(' ','')
+    # remove spaces around operators (space itself is also a multiplication operator)
+    units = re.sub(RE_OPERATORS, r'\1', units)
+
+    # encapsulate terms to be treated separately
+    units = '(%s)' % re.sub(RE_TERMS, r'\1)\2(', units)
         
     # treat groups seprately
-    while '(' in units and ')' in units:
-        units = re.sub(r'\/?\(([^\(\)]+?)\)', simplify_group, units)
+    while re.search(RE_GROUPS, units) is not None:
+        units = re.sub(RE_GROUPS, simplify_group, units)
 
     return format(parse(units))
 
@@ -101,39 +118,38 @@ def parse(units):
     format
 
     '''
-    
+
     # multiple terms not supported, return as is
-    if re.search(r'[^\^][\+\-]', units):
-        return units
+    if re.search(RE_TERMS, units):
+        return [(units, 1.)]
 
     # add missing exponents
-    units = re.sub(r'([a-zA-Z])([\-\+\d\.]+)', r'\1^\2', units)
+    units = re.sub(RE_EXPONENTS_MISSING, r'\1^\2', units)
             
     # loop over unique units
     parts = []
-    for u in set(re.findall(r'[a-zA-Z]+', units)):
+    for u in set(re.findall(RE_VARIABLE, units)):
             
         # expand exponents
-        m = re.findall(r'(\/)?(%s(\^[\+\-\d\.]+)*)' % u, units)
+        m = re.findall(RE_EXPONENTS % u, units)
             
         n = 0.
         for prefix, string, exp in m:
                 
             # group exponents
             if len(exp) > 0:
-                exp = np.prod([float(x) for x in re.findall(r'[\+\-\d\.]+', string)])
+                exp = np.prod([float(x) for x in re.findall(RE_NUMBER, string)])
             else:
                 exp = 1.
                 
-            # negate exponents
             if prefix == '/':
+                # negate exponents
                 exp = -exp
+            elif prefix == '^':
+                # abort when exponent is a variable
+                return [(units, 1.)]
                 
             n += exp
-                
-        # replace Hz
-        #if u.upper() == 'HZ' and n < 0.:
-        #    u, n = 's', -n
 
         if n != 0:
             parts.append((u, n))
