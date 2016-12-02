@@ -1,3 +1,4 @@
+import copy
 import pyproj
 import logging
 import numpy as np
@@ -52,9 +53,10 @@ class OceanWaves(xr.Dataset):
     crs = None
     
 
-    def __init__(self,
-                 times=None, locations=None, frequencies=None, directions=None, energy=None,
-                 times_units='s', locations_units='m', frequencies_units='Hz', directions_units='rad', energy_units='m^2/Hz',
+    def __init__(self, time=None, location=None, frequency=None,
+                 direction=None, energy=None, time_units='s',
+                 location_units='m', frequency_units='Hz',
+                 direction_units='deg', energy_units='m^2/Hz',
                  attrs=None, crs=None, **kwargs):
         '''Initialize class
 
@@ -63,26 +65,26 @@ class OceanWaves(xr.Dataset):
 
         Parameters
         ----------
-        times : iterable, optional
+        time : iterable, optional
             Time coordinates, each item can be a datetime object or
             float
-        locations : iterable of 2-tuples, optional
+        location : iterable of 2-tuples, optional
             Location coordinates, each item is a 2-tuple with x- and
             y-coordinates
-        frequencies : iterable, optional
+        frequency : iterable, optional
             Frequency cooridinates
-        directions : iterable, optional
+        direction : iterable, optional
             Direction coordinates
         energy : matrix, optional
             Wave energy
-        times_units : str, optional
+        time_units : str, optional
             Units of time coordinates (default: s)
-        locations_units : str, optional
+        location_units : str, optional
             Units of location coordinates (default: m)
-        frequencies_units : str, optional
+        frequency_units : str, optional
             Units of frequency coordinates (default: Hz)
-        directions_units : str, optional
-            Units of direction coordinates (default: rad)
+        direction_units : str, optional
+            Units of direction coordinates (default: deg)
         energy_units : str, optional
             Units of wave energy (default: m^2/Hz)
         attrs : dict-like, optional
@@ -99,29 +101,29 @@ class OceanWaves(xr.Dataset):
         data_vars = OrderedDict()
 
         # simplify units
-        times_units = simplify(times_units)
-        locations_units = simplify(locations_units)
-        frequencies_units = simplify(frequencies_units)
-        directions_units = simplify(directions_units)
+        time_units = simplify(time_units)
+        location_units = simplify(location_units)
+        frequency_units = simplify(frequency_units)
+        direction_units = simplify(direction_units)
         energy_units = simplify(energy_units)
         
         # determine object dimensions
-        if times is not None:
+        if time is not None:
             coords['time']      = xr.Variable('time',
-                                              times,
-                                              attrs=dict(units=times_units))
+                                              time,
+                                              attrs=dict(units=time_units))
 
-        if locations is not None:
+        if location is not None:
             coords['location']  = xr.Variable('location',
-                                              np.arange(len(locations)))
+                                              np.arange(len(location)))
             
-            x, y = zip(*locations)
+            x, y = zip(*location)
             data_vars['x']      = xr.Variable('location',
                                               np.asarray(x),
-                                              attrs=dict(units=locations_units))
+                                              attrs=dict(units=location_units))
             data_vars['y']      = xr.Variable('location',
                                               np.asarray(y),
-                                              attrs=dict(units=locations_units))
+                                              attrs=dict(units=location_units))
                 
             data_vars['lat']    = xr.Variable('location',
                                               np.asarray(x) + np.nan,
@@ -130,21 +132,22 @@ class OceanWaves(xr.Dataset):
                                               np.asarray(y) + np.nan,
                                               attrs=dict(units='degE'))
 
-        if frequencies is not None:
+        if frequency is not None:
             coords['frequency'] = xr.Variable('frequency',
-                                              frequencies,
-                                              attrs=dict(units=frequencies_units))
+                                              frequency[frequency>0.],
+                                              attrs=dict(units=frequency_units))
             
-        if directions is not None:
+        if direction is not None:
             coords['direction'] = xr.Variable('direction',
-                                               directions,
-                                               attrs=dict(units=directions_units))
+                                               direction,
+                                               attrs=dict(units=direction_units))
 
         # determine object shape
         shp = tuple([len(c) for c in coords.itervalues()])
 
         # initialize energy variable
         data_vars['energy']     = xr.DataArray(np.nan + np.zeros(shp),
+                                               dims=coords,
                                                coords=coords,
                                                attrs=dict(units=energy_units))
         
@@ -156,7 +159,7 @@ class OceanWaves(xr.Dataset):
 
         # set wave energy
         if energy is not None:
-            self.variables['energy'] = energy
+            self.variables['energy'].values = energy
 
         # convert coordinates
         self.convert_coordinates(crs)
@@ -389,124 +392,90 @@ class OceanWaves(xr.Dataset):
             return xr.DataArray(m, coords=coords, attrs=dict(units=units))
 
 
+    def jonswap(self, Hm0=1., Tp=4., gamma=3.3, sigma_low=.07,
+                sigma_high=.09, method='yamaguchi', theta_peak=0.,
+                s=20., g=9.81, normalize=True):
+        '''Populate data object with a JONSWAP spectrum
+
+        See :func:`jonswap` and :func:`directional_spreading` for
+        options.
+
+        '''
+
+        if self.has_dimension('frequency', raise_error=True):
+            f = self.variables['frequency']
+            E = jonswap(f.values, Hm0=Hm0, Tp=Tp, gamma=gamma,
+                        sigma_low=sigma_low, sigma_high=sigma_high,
+                        g=g, method=method, normalize=normalize)
+        
+        if self.has_dimension('direction'):
+            theta = self.variables['direction']
+            T = directional_spreading(theta.values, theta_peak, s=s,
+                                      units='rad',
+                                      normalize=normalize)
+            E = np.multiply(*np.meshgrid(E, T)).T
+
+        if self.has_dimension('location'):
+            n = len(self.variables['location'])
+            E = E[np.newaxis,...].repeat(n, axis=0)
+            
+        if self.has_dimension('time'):
+            n = len(self.variables['time'])
+            E = E[np.newaxis,...].repeat(n, axis=0)
+
+        self.energy = E
+
+        return self
+
+
+    def to_2d(self, direction, direction_units='deg', theta_peak=0.,
+              s=20., normalize=True):
+        '''Convert omnidirectional spectrum to a directional spectrum
+
+        See :func:`directional_spreading` for options.
+
+        '''
+
+        if self.has_dimension('direction'):
+            raise ValueError('Spectrum already two-dimensional')
+
+        E = self.energy.values
+        E = E[...,np.newaxis].repeat(len(direction), axis=-1)
+        
+        T = directional_spreading(direction, theta_peak=theta_peak,
+                                  s=s, normalize=normalize)
+
+        kwargs = dict(direction = direction,
+                      attrs = self.attrs,
+                      crs = self.crs)
+
+        if self.has_dimension('frequency'):
+            kwargs['frequency'] = self.coords['frequency'].values
+            kwargs['frequency_units'] = self.coords['frequency'].attrs['units']
+            T = T[np.newaxis,...].repeat(len(kwargs['frequency']), axis=0)
+
+        if self.has_dimension('location'):
+            x = self.variables['x'].values
+            y = self.variables['y'].values
+            kwargs['location'] = zip(x, y)
+            kwargs['location_units'] = self.variables['x'].attrs['units']
+            T = T[np.newaxis,...].repeat(len(kwargs['location']), axis=0)
+            
+        if self.has_dimension('time'):
+            kwargs['time'] = self.coords['time'].values
+            kwargs['time_units'] = self.coords['time'].attrs['units']
+            T = T[np.newaxis,...].repeat(len(kwargs['time']), axis=0)
+
+        kwargs['energy'] = np.multiply(E, T)
+
+        return OceanWaves(**kwargs)
+    
+    
     @property
     def plot(self):
 
-#        if self.has_dimension('direction'):
-#            return SpectralPlotMethods(self.data_vars['energy'])
-#        else:
         return self.data_vars['energy'].plot
-
     
-#    def plot(self, figsize=None, **kwargs):
-#        '''Plot data in raster of subplots
-#
-#        '''
-#
-#        # determine number of subplots
-#        nx, ny = 1, 1
-#        
-#        if self.has_dimension('time'):
-#            nx = len(self.variables['time'])
-#        if self.has_dimension('location'):
-#            ny = len(self.variables['location'])
-#
-#        # create figure object
-#        if self.has_dimension('direction'):
-#            axs = plot.create_figure(ny, nx, figsize=figsize,
-#                                     subplot_kw=dict(projection='polar'), squeeze=False)
-#        else:
-#            axs = plot.create_figure(ny, nx, figsize=figsize, squeeze=False)
-#
-#        # plot
-#        for i in range(ny):
-#            for j in range(nx):
-#
-#                # select energy subset
-#                ix = {}
-#                if self.has_dimension('time'):
-#                    ix['time'] = j
-#                if self.has_dimension('location'):
-#                    ix['location'] = i
-#
-#                E = self.variables['energy'][ix]
-#
-#                if self.has_dimension('direction'):
-#
-#                    # polar plot
-#                    plot.spectrum2d(self.variables['frequency'],
-#                                    self.variables['direction'],
-#                                    E, ax=axs[i,j], **kwargs)
-#                    
-#                else:
-#
-#                    # spectral plot
-#                    plot.spectrum1d(self.variables['frequency'],
-#                                    E, ax=axs[i,j], **kwargs)
-#
-#                # set labels
-#                if i < ny-1:
-#                    axs[i,j].set_xlabel('')
-#                if j > 0:
-#                    axs[i,j].set_ylabel('')
-#
-#                # set titles
-#                if self.has_dimension('time') and i == 0:
-#                    axs[i,j].set_title(self.variables['time'][j].values)
-#                if self.has_dimension('location') and j == nx-1:
-#                    axs[i,j].set_title(self.variables['location'][i].values, loc='right')
-#
-#        return axs
-                    
-        
-#    def plot_map(self, size=.1, time=0, ax=None, figsize=None, **kwargs):
-#        '''Plot data on map
-#
-#        '''
-#
-#        if self.has_dimension('location', raise_error=True):
-#
-#            x = self.variables['x']
-#            y = self.variables['y']
-#
-#            ax = plot.create_figure(ax=ax, figsize=figsize, extent=(x, y))
-#            fig = ax.get_figure()
-#            axs = [ax]
-#
-#            # select energy subset
-#            ix = {}
-#            if self.has_dimension('time'):
-#                ix['time'] = time
-#                
-#            for i in range(len(self.variables['location'])):
-#
-#                ix['location'] = i
-#                E = self.variables['energy'][ix]
-#
-#                # determine subplot position
-#                pos = axs[0].transData.transform((x[i], y[i]))
-#                pos = fig.transFigure.inverted().transform(pos)
-#                rect = list(pos-.5*size) + [size, size]
-#
-#                if self.has_dimension('direction'):
-#
-#                    # polar plot
-#                    ax = fig.add_axes(rect, projection='polar')
-#                    plot.spectrum2d(self.variables['frequency'],
-#                                    self.variables['direction'],
-#                                    E, ax=ax, **kwargs)
-#                    
-#                else:
-#
-#                    # spectral plot
-#                    ax = fig.add_axes(rect)
-#                    plot.spectrum1d(self.variables['frequency'],
-#                                    E, ax=ax, **kwargs)
-#
-#                axs.append(ax)
-#
-#            return axs
-
         
     @property
     def energy(self):
@@ -546,16 +515,25 @@ class OceanWaves(xr.Dataset):
 
         Raises
         ------
-        KeyError
+        ValueError
 
         '''
 
-        has_dim = dim in self.dims.keys()
+        if dim in self.dims.keys():
 
-        if raise_error and not has_dim:
-            raise KeyError('Object has no dimension "%s"' % dim)
+            if len(self.variables[dim].values) > 1:
 
-        return has_dim
+                return True
+
+            elif raise_error:
+
+                raise ValueError('Object has dimension "%s", but it has a length unity' % dim)
+
+        elif raise_error:
+
+            raise ValueError('Object has no dimension "%s"' % dim)
+
+        return False
 
 
     def convert_coordinates(self, crs):
@@ -582,5 +560,94 @@ class OceanWaves(xr.Dataset):
                 self.variables['lon'].values = lon
 
 
+def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
+            g=9.81, method='yamaguchi', normalize=True):
+    '''Generate JONSWAP spectrum
 
+    Parameters
+    ----------
+    f : numpy.ndarray
+        Array of frequencies
+    Hm0 : float
+        Required zeroth order moment wave height
+    Tp : float
+        Required peak wave period
+    gamma : float
+        JONSWAP peak-enhancement factor (default: 3.3)
+    sigma_low : float
+        Sigma value for frequencies <= ``1/Tp`` (default: 0.07)
+    sigma_high : float
+        Sigma value for frequencies > ``1/Tp`` (default: 0.09)
+    g : float
+        Gravitational constant (default: 9.81)
+    method : str
+        Method to compute alpha (default: yamaguchi)
+    normalize : bool
+        Normalize resulting spectrum to match ``Hm0``
     
+    Returns
+    -------
+    E : numpy.ndarray
+        Array of shape ``f`` with wave energy densities 
+    
+    '''
+
+    # Pierson-Moskowitz
+    if method.lower() == 'yamaguchi':
+        alpha = 1. / (.06533 * gamma ** .8015 + .13467) / 16.
+    elif method.lower() == 'goda':
+        alpha = 1. / (.23 + .03 * gamma - .185 / (1.9 + gamma)) / 16.
+    else:
+        raise ValueError('Unknown method: %s' % method)
+        
+    E_pm  = alpha * Hm0**2 * Tp**-4 * f**-5 * np.exp(-1.25 * (Tp * f)**-4)
+        
+    # JONSWAP
+    sigma = np.ones(f.shape) * sigma_low
+    sigma[f > 1./Tp] = sigma_high
+
+    E_js = E_pm * gamma**np.exp(-0.5 * (Tp * f - 1)**2. / sigma**2.);
+    
+    if normalize:
+        E_js *= Hm0**2. / (16. * np.trapz(E_js, f))
+        
+    return E_js
+
+
+def directional_spreading(theta, theta_peak=0., s=20., units='deg',
+                          normalize=True):
+    '''Generate wave spreading
+
+    Parameters
+    ----------
+    theta : numpy.ndarray
+
+    Returns
+    -------
+    p_theta : numpy.ndarray
+
+    '''
+    
+    from math import gamma
+    
+    theta = np.asarray(theta, dtype=np.float)
+    
+    if units.lower().startswith('deg'):
+        theta = np.radians(theta)
+        theta_peak = np.radians(theta_peak)
+    elif units.lower().startswith('rad'):
+        pass
+    else:
+        raise ValueError('Unknown units: %s')
+    
+    A1 = (2.**s) * (gamma(s / 2 + 1))**2. / (np.pi * gamma(s + 1))
+    p_theta = A1 * np.maximum(0., np.cos(theta - theta_peak))
+            
+    if units.lower().startswith('deg'):
+        p_theta = np.degrees(p_theta)
+    
+    if normalize:
+        p_theta /= np.trapz(p_theta, theta)
+                
+    return p_theta
+
