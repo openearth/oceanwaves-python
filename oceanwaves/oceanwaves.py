@@ -51,6 +51,7 @@ class OceanWaves(xr.Dataset):
 
 
     crs = None
+    extra_args = None
     
 
     def __init__(self, time=None, location=None, frequency=None,
@@ -95,7 +96,13 @@ class OceanWaves(xr.Dataset):
             Additional options passed to the xarray.Dataset
             initialization method
 
+        See Also
+        --------
+        reinitialize
+
         '''
+
+        self.extra_args = kwargs
         
         coords = OrderedDict()
         data_vars = OrderedDict()
@@ -386,95 +393,212 @@ class OceanWaves(xr.Dataset):
             # determine units
             E_units = self.variables['energy'].attrs['units']
             f_units = self.variables['frequency'].attrs['units']
-            units = E_units + ('*%s^%d' % (f_units, n+1))
+            units = E_units + ('*((%s)^%d)' % (f_units, n+1))
             units = simplify(units)
             
-            return xr.DataArray(m, coords=coords, attrs=dict(units=units))
+            return xr.DataArray(m, dims=coords, coords=coords,
+                                attrs=dict(units=units))
 
 
-    def jonswap(self, Hm0=1., Tp=4., gamma=3.3, sigma_low=.07,
-                sigma_high=.09, method='yamaguchi', theta_peak=0.,
-                s=20., g=9.81, normalize=True):
-        '''Populate data object with a JONSWAP spectrum
+    def to_spectral(self, frequency, frequency_units='Hz', Tp=4.,
+                    gamma=3.3, sigma_low=.07, sigma_high=.09,
+                    shape='jonswap', method='yamaguchi', g=9.81,
+                    normalize=True):
+        '''Convert wave energy to spectrum
 
-        See :func:`jonswap` and :func:`directional_spreading` for
-        options.
+        Spreads total wave energy over a given set of frequencies
+        according to the JONSWAP spectrum shape.
+
+        See :func:`jonswap` for options.
+
+        Returns
+        -------
+        OceanWaves
+            New OceanWaves object
 
         '''
 
-        if self.has_dimension('frequency', raise_error=True):
-            f = self.variables['frequency']
-            E = jonswap(f.values, Hm0=Hm0, Tp=Tp, gamma=gamma,
-                        sigma_low=sigma_low, sigma_high=sigma_high,
-                        g=g, method=method, normalize=normalize)
-        
-        if self.has_dimension('direction'):
-            theta = self.variables['direction']
-            T = directional_spreading(theta.values, theta_peak, s=s,
-                                      units='rad',
-                                      normalize=normalize)
-            E = np.multiply(*np.meshgrid(E, T)).T
+        if self.has_dimension('frequency'):
+            raise ValueError('Object already spectral')
 
-        if self.has_dimension('location'):
-            n = len(self.variables['location'])
-            E = E[np.newaxis,...].repeat(n, axis=0)
+        frequency = frequency[frequency>0]
+
+        energy = self.variables['energy'].values
+        energy_units = self.variables['energy'].attrs['units']
+
+        # convert to energy
+        if self.units == 'm':
+            energy **= 2.
+            energy_units = '(%s)^2' % energy_units
             
-        if self.has_dimension('time'):
-            n = len(self.variables['time'])
-            E = E[np.newaxis,...].repeat(n, axis=0)
+        # expand energy matrix
+        if self.has_dimension('direction'):
+            energy = energy[...,np.newaxis,:].repeat(len(frequency), axis=-2)
+        else:
+            energy = energy[...,np.newaxis].repeat(len(frequency), axis=-1)
 
-        self.energy = E
+        # compute spectrum shape
+        if shape.lower() == 'jonswap':
+            spectrum = jonswap(frequency, Hm0=1., Tp=Tp, gamma=gamma,
+                               sigma_low=sigma_low,
+                               sigma_high=sigma_high, g=g,
+                               method=method, normalize=normalize)
+        else:
+            raise ValueError('Unknown spectrum shape: %s', shape)
+        
+        for n in energy.shape[::-1][1:]:
+            spectrum = spectrum[np.newaxis,...].repeat(n, axis=0)
 
-        return self
+        energy = np.multiply(energy, spectrum)
+
+        # determine units
+        units = '(%s)/(%s)' % (energy_units,
+                               frequency_units)
+
+        # reinitialize object with new dimensions
+        return self.reinitialize(frequency=frequency,
+                                 frequency_units=frequency_units,
+                                 energy=energy)
 
 
-    def to_2d(self, direction, direction_units='deg', theta_peak=0.,
-              s=20., normalize=True):
+    def to_directional(self, direction, direction_units='deg',
+                       theta_peak=0., s=20., normalize=True):
         '''Convert omnidirectional spectrum to a directional spectrum
+
+        Spreads total wave energy over a given set of directions
+        according to a spreading factor ``s``.
 
         See :func:`directional_spreading` for options.
 
+        Returns
+        -------
+        OceanWaves
+            New OceanWaves object
+
         '''
 
         if self.has_dimension('direction'):
-            raise ValueError('Spectrum already two-dimensional')
+            raise ValueError('Spectrum already directional')
 
-        E = self.energy.values
-        E = E[...,np.newaxis].repeat(len(direction), axis=-1)
+        # expand energy matrix
+        energy = self.variables['energy'].values
+        energy = energy[...,np.newaxis].repeat(len(direction), axis=-1)
+
+        # compute directional spreading
+        spreading = directional_spreading(direction,
+                                          units=direction_units,
+                                          theta_peak=theta_peak, s=s,
+                                          normalize=normalize)
+        for n in energy.shape[::-1][1:]:
+            spreading = spreading[np.newaxis,...].repeat(n, axis=0)
+
+        energy = np.multiply(energy, spreading)
+
+        # determine units
+        units = '(%s)/(%s)' % (self.variables['energy'].attrs['units'],
+                               direction_units)
+
+        # reinitialize object with new dimensions
+        return self.reinitialize(direction=direction,
+                                 direction_units=direction_units,
+                                 energy=energy,
+                                 energy_units=simplify(units))
+
+
+    def to_omnidirectional(self):
+        '''Convert directional spectrum to an omnidirectional spectrum
+
+        Integrate spectral energy over the directions.
+
+        Returns
+        -------
+        OceanWaves
+            New OceanWaves object
+
+        '''
+
+        if not self.has_dimension('direction'):
+            raise ValueError('Spectrum already omnidirectional')
+
+        # expand energy matrix
+        energy = np.trapz(self.variables['energy'].values,
+                          self.coords['direction'].values, axis=-1)
+
+        # determine units
+        units = '(%s)*(%s)' % (self.variables['energy'].attrs['units'],
+                               self.variables['direction'].attrs['units'])
         
-        T = directional_spreading(direction, theta_peak=theta_peak,
-                                  s=s, normalize=normalize)
+        # reinitialize object with new dimensions
+        return self.reinitialize(direction=None,
+                                 energy=energy,
+                                 energy_units=simplify(units))
 
-        kwargs = dict(direction = direction,
-                      attrs = self.attrs,
-                      crs = self.crs)
 
+    def reinitialize(self, **kwargs):
+        '''Reinitializes current object with modified parameters
+
+        Gathers current object's initialization settings and updates
+        them with the given initialization options. Then initializes a
+        new object with the resulting option set. See for all
+        supported options the initialization method of this class.
+
+        Parameters
+        ----------
+        kwargs : dict
+            Keyword/value pairs with initialization options that need
+            to be overwritten
+
+        Returns
+        -------
+        OceanWaves
+            New OceanWaves object
+
+        '''
+
+        settings = dict(attrs = self.attrs,
+                        crs = self.crs)
+
+        if self.has_dimension('direction'):
+            settings['direction'] = self.coords['direction'].values
+            settings['direction_units'] = self.coords['direction'].attrs['units']
+            
         if self.has_dimension('frequency'):
-            kwargs['frequency'] = self.coords['frequency'].values
-            kwargs['frequency_units'] = self.coords['frequency'].attrs['units']
-            T = T[np.newaxis,...].repeat(len(kwargs['frequency']), axis=0)
+            settings['frequency'] = self.coords['frequency'].values
+            settings['frequency_units'] = self.coords['frequency'].attrs['units']
 
         if self.has_dimension('location'):
             x = self.variables['x'].values
             y = self.variables['y'].values
-            kwargs['location'] = zip(x, y)
-            kwargs['location_units'] = self.variables['x'].attrs['units']
-            T = T[np.newaxis,...].repeat(len(kwargs['location']), axis=0)
+            settings['location'] = zip(x, y)
+            settings['location_units'] = self.variables['x'].attrs['units']
             
         if self.has_dimension('time'):
-            kwargs['time'] = self.coords['time'].values
-            kwargs['time_units'] = self.coords['time'].attrs['units']
-            T = T[np.newaxis,...].repeat(len(kwargs['time']), axis=0)
+            settings['time'] = self.coords['time'].values
+            settings['time_units'] = self.coords['time'].attrs['units']
 
-        kwargs['energy'] = np.multiply(E, T)
+        settings['energy'] = self.variables['energy'].values
 
-        return OceanWaves(**kwargs)
-    
+        if type(self.extra_args) is dict:
+            settings.update(self.extra_args)
+        
+        settings.update(**kwargs)
+
+        return OceanWaves(**settings)
+
     
     @property
     def plot(self):
 
-        return self.data_vars['energy'].plot
+        obj = self
+
+        # convert to radians
+        if self.has_dimension('direction'):
+            d = self.variables['direction']
+            if d.attrs['units'].lower().startswith('deg'):
+                obj = self.reinitialize(direction=np.radians(d.values),
+                                        direction_units='rad')
+
+        return obj.data_vars['energy'].plot
     
         
     @property
@@ -496,6 +620,12 @@ class OceanWaves(xr.Dataset):
     def shape(self):
 
         return self.variables['energy'].shape
+
+
+    @property
+    def units(self):
+
+        return self.variables['energy'].attrs['units']
 
 
     def has_dimension(self, dim, raise_error=False):
@@ -621,10 +751,20 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
     Parameters
     ----------
     theta : numpy.ndarray
+        Array of mean bin directions
+    theta_peak : float
+        Peak direction (default: 0)
+    s : float
+        Exponent in cosine law (default: 20)
+    units : str
+        Directional units (deg or rad, default: deg)
+    normalize : bool
+        Normalize resulting spectrum to unity
 
     Returns
     -------
     p_theta : numpy.ndarray
+       Array of directional weights
 
     '''
     
@@ -639,15 +779,17 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
         pass
     else:
         raise ValueError('Unknown units: %s')
-    
-    A1 = (2.**s) * (gamma(s / 2 + 1))**2. / (np.pi * gamma(s + 1))
-    p_theta = A1 * np.maximum(0., np.cos(theta - theta_peak))
+
+    #A1 = (2.**s) * (gamma(s / 2 + 1))**2. / (np.pi * gamma(s + 1))
+    #p_theta = A1 * np.maximum(0., np.cos(theta - theta_peak))
+
+    p_theta = np.maximum(0., np.cos(theta - theta_peak))**s
             
-    if units.lower().startswith('deg'):
-        p_theta = np.degrees(p_theta)
-    
     if normalize:
-        p_theta /= np.trapz(p_theta, theta)
+        p_theta /= np.trapz(p_theta, theta - theta_peak)
                 
+    if units.lower().startswith('deg'):
+        p_theta = np.radians(p_theta)
+    
     return p_theta
 

@@ -41,7 +41,7 @@ def simplify(units):
         parts = parse(group)
         if m.group().startswith('/'):
             parts = [(u, -e) for u, e in parts]
-        return format(parts)
+        return ' %s' % format(parts)
         
         
     # remove spaces around operators (space itself is also a multiplication operator)
