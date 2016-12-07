@@ -44,8 +44,10 @@ class OceanWaves(xr.Dataset):
     like writing to netCDF or converting to pandas.DataFrame.
 
     TODO:
-    - improve plotting routines
-    - add phase functions to use with tides: phase estimates, phase
+
+    * improve plotting routines
+
+    * add phase functions to use with tides: phase estimates, phase
       interpolation, etc.
 
     '''
@@ -99,7 +101,7 @@ class OceanWaves(xr.Dataset):
 
         See Also
         --------
-        reinitialize
+        oceanwaves.OceanWaves.reinitialize
 
         '''
 
@@ -255,7 +257,7 @@ class OceanWaves(xr.Dataset):
 
 
     def Tp(self):
-        '''Alias for :func:`peak_period`
+        '''Alias for :meth:`oceanwaves.OceanWaves.peak_period`
 
         '''
 
@@ -410,7 +412,7 @@ class OceanWaves(xr.Dataset):
         Spreads total wave energy over a given set of frequencies
         according to the JONSWAP spectrum shape.
 
-        See :func:`jonswap` for options.
+        See :func:`oceanwaves.spectral.jonswap` for options.
 
         Returns
         -------
@@ -469,7 +471,7 @@ class OceanWaves(xr.Dataset):
         Spreads total wave energy over a given set of directions
         according to a spreading factor ``s``.
 
-        See :func:`directional_spreading` for options.
+        See :func:`oceanwaves.spectral.directional_spreading` for options.
 
         Returns
         -------
