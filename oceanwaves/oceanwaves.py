@@ -8,7 +8,7 @@ import scipy.interpolate
 from collections import OrderedDict
 
 from .units import simplify
-from .plot import spectrum2d
+from .plot import OceanWavesPlotMethods
 
 
 # initialize logger
@@ -419,7 +419,7 @@ class OceanWaves(xr.Dataset):
         '''
 
         if self.has_dimension('frequency'):
-            raise ValueError('Object already spectral')
+            return self
 
         frequency = frequency[frequency>0]
 
@@ -478,7 +478,7 @@ class OceanWaves(xr.Dataset):
         '''
 
         if self.has_dimension('direction'):
-            raise ValueError('Spectrum already directional')
+            return self
 
         # expand energy matrix
         energy = self.variables['energy'].values
@@ -518,7 +518,7 @@ class OceanWaves(xr.Dataset):
         '''
 
         if not self.has_dimension('direction'):
-            raise ValueError('Spectrum already omnidirectional')
+            return self
 
         # expand energy matrix
         energy = np.trapz(self.variables['energy'].values,
@@ -532,6 +532,30 @@ class OceanWaves(xr.Dataset):
         return self.reinitialize(direction=None,
                                  energy=energy,
                                  energy_units=simplify(units))
+
+
+    def to_radians(self):
+        '''Convert directions to radians'''
+
+        if self.has_dimension('direction'):
+            d = self.coords['direction']
+            if d.attrs['units'].lower().startswith('deg'):
+                return self.reinitialize(direction=np.radians(d.values),
+                                         direction_units='rad')
+
+        return self
+    
+
+    def to_degrees(self):
+        '''Convert directions to degrees'''
+
+        if self.has_dimension('direction'):
+            d = self.coords['direction']
+            if d.attrs['units'].lower().startswith('rad'):
+                return self.reinitialize(direction=np.degrees(d.values),
+                                         direction_units='deg')
+
+        return self
 
 
     def reinitialize(self, **kwargs):
@@ -589,22 +613,17 @@ class OceanWaves(xr.Dataset):
     @property
     def plot(self):
 
-        obj = self
-
-        # convert to radians
-        if self.has_dimension('direction'):
-            d = self.variables['direction']
-            if d.attrs['units'].lower().startswith('deg'):
-                obj = self.reinitialize(direction=np.radians(d.values),
-                                        direction_units='rad')
-
-        return obj.data_vars['energy'].plot
+        obj = self.to_radians()
+        
+        return OceanWavesPlotMethods(obj.variables['x'].values,
+                                     obj.variables['y'].values,
+                                     obj.data_vars['energy'])
     
         
     @property
     def energy(self):
 
-        return self.variables['energy']
+        return self.data_vars['energy']
 
     
     @energy.setter
