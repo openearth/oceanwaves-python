@@ -12,9 +12,10 @@ provides a series of I/O functions to use with various file formats,
 like `SWAN <http://swanmodel.sourceforge.net>`_, `Waverider buoys
 <http://datawell.nl>`_ and `WaveDroid <http://www.wavedroid.net>`_.
 
-Oceanwaves is a merger of the functionalities of the `pyswan
-<https://github.com/openearth/pyswan>`_ toolbox, originally developed
-by Gerben de Boer, and the `swantools
+Oceanwaves is based on the `xarray DataSet object
+<https://pypi.python.org/pypi/xarray>`_. Many of its functionalities
+are obtained from the `pyswan <https://github.com/openearth/pyswan>`_
+toolbox, originally developed by Gerben de Boer, and the `swantools
 <https://pypi.python.org/pypi/swantools/>`_ toolbox, originally
 developed by Caio Eadi Stringari.
 
