@@ -32,16 +32,16 @@ class SwanIO:
         self.quantities = []
 
 
-    def read(self, fpath):
-
-        objs = []
-        for fname in glob.glob(fpath):
-            objs.append(self._read(fname))
-            
-        return xr.merge(objs)
+#    def read_multi(self, fpath):
+#
+#        objs = []
+#        for fname in glob.glob(fpath):
+#            objs.append(self._read(fname))
+#            
+#        return xr.merge(objs)
     
             
-    def _read(self, fpath):
+    def read(self, fpath):
 
         with open(fpath, 'r') as fp:
             self.lines = fp.readlines()
@@ -99,11 +99,50 @@ class SwanIO:
                               energy=[q[:,0] for q in self.quantities])
 
 
-    def write(self, fpath):
+    def write(self, obj, fpath):
 
-        raise NotImplementedError('Writing of SWAN files not yet implemented.')
+        with open(fpath, 'w') as fp:
 
-        
+            fp.write('SWAN %4d\n' % 1)
+
+            if obj.has_dimension('time'):
+                fp.write('TIME\n')
+                fp.write('%4d\n' % 1)
+
+            if obj.has_dimension('location'):
+                fp.write('LOCATIONS\n')
+
+                x = obj.variables['x'].values
+                y = obj.variables['y'].values
+                for coords in zip(x, y):
+                    fp.write('%10.2f %10.2f\n' % coords)
+
+            if obj.has_dimension('frequency'):
+                fp.write('AFREQ\n')
+                fp.write('%4d\n' % len(obj.coords['frequency']))
+
+                for f in obj.coords['frequency'].values:
+                    fp.write('%10.2f\n' % f)
+
+            if obj.has_dimension('direction'):
+                fp.write('NDIR\n')
+                fp.write('%4d\n' % len(obj.coords['direction']))
+
+                for f in obj.coords['direction'].values:
+                    fp.write('%10.2f\n' % f)
+
+                fp.write('QUANT\n')
+                fp.write('%4d\n' % 1)
+                fp.write('VarDens\n')
+                fp.write('m2/Hz/degr\n')
+                fp.write('-99.0\n')
+                
+                fp.write('FACTOR\n')
+                fp.write('%4e\n' % 1e-5)
+
+                fp.write(obj.variables['energy'].values)
+
+                    
     def parse_comments(self):
         line = self._currentline()
         self.comments.append(line.strip())
