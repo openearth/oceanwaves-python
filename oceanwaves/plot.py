@@ -144,7 +144,7 @@ class OceanWavesPlotMethods(_PlotMethods):
 
     '''Inheritence class to add map plotting functionality to xarray.DataArray objects'''
     
-    def __init__(self, x, y, *args, **kwargs):
+    def __init__(self, darray, x=None, y=None, **kwargs):
         '''Class initilisation
 
         Parameters
@@ -160,9 +160,25 @@ class OceanWavesPlotMethods(_PlotMethods):
         
         self._x = x
         self._y = y
-        super(OceanWavesPlotMethods, self).__init__(*args, **kwargs)
-        
+        super(OceanWavesPlotMethods, self).__init__(darray, **kwargs)
+
+
+    def __call__(self, **kwargs):
+
+        # if data is directional, faceted and not yet polar, make it polar
+        if 'direction' in self._da.dims:
+            if kwargs.has_key('col') or kwargs.has_key('row'):
+                if not kwargs.has_key('subplot_kws'):
+                    kwargs.update(dict(subplot_kws = dict(projection = 'polar'),
+                                       sharex = False,
+                                       sharey = False))
+
+        return super(OceanWavesPlotMethods, self).__call__(**kwargs)
+
 
     @functools.wraps(spatial_map)
     def spatial_map(self, ax=None, **kwargs):
+        '''Plot wave data on map'''
+        if self._x is None or self._y is None:
+            raise ValueError('Cannot plot map if locations are not defined')
         return spatial_map(self._da, self._x, self._y, ax=ax, **kwargs)

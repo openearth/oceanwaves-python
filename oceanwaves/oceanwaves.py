@@ -110,6 +110,13 @@ class OceanWaves(xr.Dataset):
         coords = OrderedDict()
         data_vars = OrderedDict()
 
+        # simplify dimensions
+        time = np.asarray(time)
+        location = np.asarray(location)
+        frequency = np.asarray(frequency, dtype=np.float)
+        direction = np.asarray(direction, dtype=np.float)
+        energy = np.asarray(energy, dtype=np.float)
+        
         # simplify units
         time_units = simplify(time_units)
         location_units = simplify(location_units)
@@ -118,12 +125,12 @@ class OceanWaves(xr.Dataset):
         energy_units = simplify(energy_units)
         
         # determine object dimensions
-        if time is not None:
+        if self._isvalid(time):
             coords['time']      = xr.Variable('time',
                                               time,
                                               attrs=dict(units=time_units))
 
-        if location is not None:
+        if self._isvalid(location):
             coords['location']  = xr.Variable('location',
                                               np.arange(len(location)))
             
@@ -142,12 +149,12 @@ class OceanWaves(xr.Dataset):
                                               np.asarray(y) + np.nan,
                                               attrs=dict(units='degE'))
 
-        if frequency is not None:
+        if self._isvalid(frequency, mask=frequency>0):
             coords['frequency'] = xr.Variable('frequency',
-                                              frequency[frequency>0.],
+                                              frequency[frequency>0],
                                               attrs=dict(units=frequency_units))
             
-        if direction is not None:
+        if self._isvalid(direction):
             coords['direction'] = xr.Variable('direction',
                                                direction,
                                                attrs=dict(units=direction_units))
@@ -168,8 +175,8 @@ class OceanWaves(xr.Dataset):
                                          **kwargs)
 
         # set wave energy
-        if energy is not None:
-            self.variables['energy'].values = energy
+        if self._isvalid(energy):
+            self.energy = energy
 
         # convert coordinates
         self.convert_coordinates(crs)
@@ -617,10 +624,13 @@ class OceanWaves(xr.Dataset):
     def plot(self):
 
         obj = self.to_radians()
-        
-        return OceanWavesPlotMethods(obj.variables['x'].values,
-                                     obj.variables['y'].values,
-                                     obj.data_vars['energy'])
+
+        if self.has_dimension('location'):
+            return OceanWavesPlotMethods(obj.data_vars['energy'],
+                                         obj.variables['x'].values,
+                                         obj.variables['y'].values)
+        else:
+            return OceanWavesPlotMethods(obj.data_vars['energy'])
     
         
     @property
@@ -634,7 +644,21 @@ class OceanWaves(xr.Dataset):
         '''Convenience function to set wave energy with arbitrary dimension order
 
         '''
-        
+
+        if len(self.shape) < len(energy.shape):
+            energy = np.squeeze(energy)
+        if len(self.shape) != len(energy.shape):
+            raise ValueError('Incompatible number of dimensions in energy matrix: '
+                             '%s, while %s was expected' % (energy.shape, self.shape))
+        elif self.shape != energy.shape:
+            if ~all([x in energy.shape for x in self.shape]) or \
+               ~all([x in self.shape for x in energy.shape]):
+                raise ValueError('Incompatible shape of energy matrix: '
+                                 '%s, while %s was expected' % (energy.shape, self.shape))
+            else:
+                raise ValueError('Wrong order of dimensions in energy matrix: '
+                                 '%s, while %s was expected' % (energy.shape, self.shape)) # TODO: fix this automatically
+
         self.variables['energy'].values = energy
 
         
@@ -710,3 +734,32 @@ class OceanWaves(xr.Dataset):
                 lat, lon = pyproj.transform(p1, p2, x, y)
                 self.variables['lat'].values = lat
                 self.variables['lon'].values = lon
+
+
+    @staticmethod
+    def _isvalid(arr, mask=None):
+
+        # check if not None
+        if arr is None:
+            return False
+
+        # check if iterable
+        try:
+            itr = iter(arr)
+        except TypeError:
+            return False
+
+        # apply mask
+        if mask is not None:
+            arr = arr[mask]
+
+        # check if non-zero
+        if len(arr) == 0:
+            return False
+
+        # check if all invalid
+        if arr.dtype == 'float':
+            if ~np.any(np.isfinite(arr)):
+                return False
+
+        return True

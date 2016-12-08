@@ -9,7 +9,7 @@ import xray
 import numpy  as np
 import pandas as pd
 
-from ..oceanwaves import OceanWaves
+from .oceanwaves import OceanWaves
 
 
 class SwanIO:
@@ -134,6 +134,20 @@ class SwanIO:
 					dates.append(line.split()[0][0:15])
 		times  = swantime2datetime(dates)
 		ntimes = len(times)
+
+                # check dimensions
+                if ntimes == 0:
+                        ntimes = 1
+                        times = [None]
+                if nfreqs == 0:
+                        nfreqs = 1
+                        freqs = [None]
+                if ndirs == 0:
+                        ndirs = 1
+                        dirs = [None]
+                #if nlocs == 0:
+                #        nlocs = 1
+                #        locs = [None]
 		#
 		factors  = []
 		spectrum = np.ones([ntimes,nfreqs,ndirs])
@@ -158,7 +172,6 @@ class SwanIO:
 					spectra = np.reshape(values,(nfreqs,ndirs))
 					spectrum[t,:,:] = spectra
 
-                print times, freqs, dirs, spectrum.shape
 		# Xray DataSet
                 ow = OceanWaves(time=times,
                                 frequency=freqs,
