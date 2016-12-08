@@ -431,7 +431,8 @@ class OceanWaves(xr.Dataset):
         if self.has_dimension('frequency'):
             return self
 
-        frequency = frequency[frequency>0]
+        frequency = np.asarray(frequency, dtype=np.float)
+        Frequency = frequency[frequency>0]
 
         energy = self.variables['energy'].values
         energy_units = self.variables['energy'].attrs['units']
@@ -490,6 +491,8 @@ class OceanWaves(xr.Dataset):
         if self.has_dimension('direction'):
             return self
 
+        direction = np.asarray(direction, dtype=np.float)
+        
         # expand energy matrix
         energy = self.variables['energy'].values
         energy = energy[...,np.newaxis].repeat(len(direction), axis=-1)

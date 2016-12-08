@@ -3,3 +3,4 @@ from . import spectral
 from . import units
 from . import plot
 import swan
+import swan2
