@@ -1,5 +1,6 @@
-from oceanwaves import *
-import spectral
-import units
-import plot
-import io
+from .oceanwaves import *
+from . import spectral
+from . import units
+from . import plot
+import swan
+import swan2

@@ -9,7 +9,7 @@ import xray
 import numpy  as np
 import pandas as pd
 
-from .. utils import swantime2datetime
+from .oceanwaves import OceanWaves
 
 
 class SwanIO:
@@ -134,6 +134,20 @@ class SwanIO:
 					dates.append(line.split()[0][0:15])
 		times  = swantime2datetime(dates)
 		ntimes = len(times)
+
+                # check dimensions
+                if ntimes == 0:
+                        ntimes = 1
+                        times = [None]
+                if nfreqs == 0:
+                        nfreqs = 1
+                        freqs = [None]
+                if ndirs == 0:
+                        ndirs = 1
+                        dirs = [None]
+                #if nlocs == 0:
+                #        nlocs = 1
+                #        locs = [None]
 		#
 		factors  = []
 		spectrum = np.ones([ntimes,nfreqs,ndirs])
@@ -159,17 +173,24 @@ class SwanIO:
 					spectrum[t,:,:] = spectra
 
 		# Xray DataSet
-		ds = xray.Dataset()
+                ow = OceanWaves(time=times,
+                                frequency=freqs,
+                                direction=dirs,
+                                energy=spectrum)
 
-		ds.coords['times']          = pd.DatetimeIndex(times)
-		ds.coords['reference_time'] = pd.Timestamp('2000-01-01')
-		ds.coords['freq']           = freqs
-		ds.coords['dir']            = dirs
-		ds["factors"]               = (('time'), factors)
-		ds["spectrum"]              = (('time', 'freq', 'dir'), spectrum)
-
-
-		return ds
+                return ow
+        
+	#	ds = xray.Dataset()
+        #
+	#	ds.coords['times']          = pd.DatetimeIndex(times)
+	#	ds.coords['reference_time'] = pd.Timestamp('2000-01-01')
+	#	ds.coords['freq']           = freqs
+	#	ds.coords['dir']            = dirs
+	#	ds["factors"]               = (('time'), factors)
+	#	ds["spectrum"]              = (('time', 'freq', 'dir'), spectrum)
+        #
+        #
+	#	return ds
 
 	def read_swanblock(self,fname,variables,stat=False):
 
@@ -427,3 +448,26 @@ class Converters:
 			spcout[t,:,:] = spc[t,:,:]*facs[t]
 
 		ncout.close()
+
+
+
+
+def swantime2datetime(time,inverse=False):
+        """
+Translating Swans's time strings to datetimes and vice-versa.
+See datetime module more information.
+        """
+
+        fmt = "%Y%m%d.%H%M%S"
+
+        dtime = []
+        stime = []
+
+        if inverse:
+                for date in time:
+                        stime.append(datetime.datetime.strftime(date,fmt))
+                return stime
+        else:
+                for date in time:
+                        dtime.append(datetime.datetime.strptime(date,fmt))
+                return dtime
