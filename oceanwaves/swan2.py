@@ -145,10 +145,14 @@ class SwanIO:
                 fp.write('m2/Hz/degr\n')
                 fp.write('-99.0\n')
 
+                f = 1e-5
                 fp.write('FACTOR\n')
-                fp.write('%4e\n' % 1e-5)
+                fp.write('%4e\n' % f)
 
-                fp.write(obj.variables['energy'].values)
+                n = obj.variables['energy'].shape[1]
+                fmt = '%s\n' % ('%8d ' * n)
+                for i in range(obj.variables['energy'].shape[0]):
+                    fp.write(fmt % tuple(obj.variables['energy'].values[i,:] / f))
 
 
     def read_table(self,fpath,headers=[]):
@@ -252,7 +256,7 @@ class SwanIO:
                     # append
                     dss.append(ds_at_xy)
                 # concatenate
-                ds = xr.concat(dss,dim='locations')
+                ds = xr.concat(dss,dim='location')
 
             # non stationary cases
             else:
@@ -292,7 +296,7 @@ class SwanIO:
                         # append
                         dss.append(ds_at_xy)
                     # concatenate
-                    ds = xr.concat(dss,dim='locations')
+                    ds = xr.concat(dss,dim='location')
 
                 else:
                     raise ValueError("When reading a non-stationary table, please use \'HEAD\' option.")
