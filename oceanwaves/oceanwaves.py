@@ -13,7 +13,7 @@ from xarray.core.dataset import DataVariables
 from .units import simplify
 from .plot import OceanWavesPlotMethods
 from .spectral import *
-from .swan2 import *
+from .swan import *
 
 
 # initialize logger
