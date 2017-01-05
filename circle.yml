@@ -1,3 +1,4 @@
 test:
   override:
-    - nosetests
+    - mkdir -p $CIRCLE_TEST_REPORTS/nose
+    - nosetests --with-xunit --xunit-file=$CIRCLE_TEST_REPORTS/nose/tests.xml
