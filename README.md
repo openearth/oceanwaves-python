@@ -1,5 +1,7 @@
 # oceanwaves-python
 
+[![CircleCI](https://circleci.com/gh/openearth/oceanwaves-python.svg?style=svg)](https://circleci.com/gh/openearth/oceanwaves-python)
+
 This toolbox provides a generic data storage object for ocean waves data (OceanWaves). OceanWaves is built upon the xarray.Dataset data storage object, but defines special variables for time, location, frequency and direction. Many of its functionalities are obtained from the pyswan toolbox, originally developed by Gerben de Boer, and the swantools toolbox, originally developed by Caio Eadi Stringari.
 
 The OceanWaves object supports various standard conversions, like:
