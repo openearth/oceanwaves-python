@@ -9,10 +9,10 @@ setup(
     description='A toolbox for ocean wave datasets',
     long_description=open('README.txt').read(),
     install_requires=[
-        'numpy',
-        'scipy',
-        'xarray',
-        'pyproj',
         'docopt',
+        'pyproj',
+        'xarray',
+        'scipy',
+        'numpy',
     ],
 )
