@@ -6,7 +6,7 @@ import numpy as np
 # regular expressions
 RE_OPERATORS = r'\s*([ \*\/\+\-\^])\s*'
 RE_TERMS = r'([^\^])([\+\-])'
-RE_GROUPS = r'\/?\(([^\(\)]+?)\)'
+RE_GROUPS = r'\/?\(([^\(\)]+?)\)((\^[\+\-\d\.]+)*)'
 RE_NUMBER = r'[\+\-\d\.]+'
 RE_VARIABLE = r'[a-zA-Z]+'
 RE_EXPONENTS = r'([^a-zA-Z])?(%s(\^[\+\-\d\.]+)*)'
@@ -41,6 +41,9 @@ def simplify(units):
         parts = parse(group)
         if m.group().startswith('/'):
             parts = [(u, -e) for u, e in parts]
+        if m.groups()[1]:
+            exp = np.prod([float(e) for e in m.groups()[1].split('^') if e])
+            parts = [(u, e * exp) for u, e in parts]
         return ' %s' % format(parts)
         
         
@@ -48,7 +51,7 @@ def simplify(units):
     units = re.sub(RE_OPERATORS, r'\1', units)
 
     # encapsulate terms to be treated separately
-    units = '(%s)' % re.sub(RE_TERMS, r'\1)\2(', units)
+    units = '(%s)' % re.sub(RE_TERMS, r'\1) \2(', units)
         
     # treat groups seprately
     while re.search(RE_GROUPS, units) is not None:
@@ -58,7 +61,7 @@ def simplify(units):
     # prevent odd units
     parts = prevent_odd_units(parts)
     
-    return format(parts)
+    return format(parts).strip()
 
 
 def format(parts, order=['kg','m','s','Hz']):
