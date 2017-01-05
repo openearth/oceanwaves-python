@@ -1,4 +1,5 @@
 test:
   override:
     - mkdir -p $CIRCLE_TEST_REPORTS/nose
-    - nosetests --with-xunit --xunit-file=$CIRCLE_TEST_REPORTS/nose/tests.xml
+    - mkdir -p $CIRCLE_ARTIFACTS/coverage
+    - nosetests --with-xunit --with-coverage --xunit-file=$CIRCLE_TEST_REPORTS/nose/tests.xml --cover-package=oceanwaves --cover-xml --cover-xml-file=$CIRCLE_TEST_REPORTS/nose/coverage.xml --cover-html --cover-html-dir=$CIRCLE_ARTIFACTS/coverage
