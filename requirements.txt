@@ -1,6 +1,6 @@
 numpy==1.11.2
 scipy==0.14.0
-xarray==0.8.2
+-e git+https://github.com/pydata/xarray.git#egg=xarray
 pyproj==1.9.3
 docopt==0.6.2
 matplotlib==1.4.2
