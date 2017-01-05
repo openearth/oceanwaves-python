@@ -18,7 +18,7 @@ DIMS = [('time',      [datetime(1970,1,1,0),
 
 def test_plot_polar():
     ow = OceanWaves(**dict(DIMS))
-    ow.energy = np.random.rand(*ow.shape)
+    ow['_energy'] = [d[0] for d in DIMS], np.random.rand(*ow.shape)
     ow.plot(col='time', row='location',
             subplot_kws=dict(projection='polar'), sharex=False, sharey=False)
 
