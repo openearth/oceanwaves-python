@@ -752,6 +752,14 @@ class OceanWaves(xr.Dataset):
         return self
 
 
+    def to_netcdf(self, *args, **kwargs):
+
+        obj = self.copy()
+        obj.attrs = {k:v for k, v in obj.attrs.iteritems() if not k.startswith('_')}
+                
+        return super(OceanWaves, obj).to_netcdf(*args, **kwargs)
+
+    
     @property
     def from_swan(self):
 
