@@ -610,7 +610,7 @@ class OceanWaves(xr.Dataset):
 
         # convert to energy
         if self.units == 'm':
-            energy **= 2.
+            energy = energy**2. / 16.
             energy_units = '(%s)^2' % energy_units
             
         # compute spectrum shape
@@ -619,6 +619,9 @@ class OceanWaves(xr.Dataset):
                                sigma_low=sigma_low,
                                sigma_high=sigma_high, g=g,
                                method=method, normalize=normalize)
+
+            # normalize shape
+            spectrum /= np.trapz(spectrum, frequency)
         else:
             raise ValueError('Unknown spectrum shape: %s', shape)
 

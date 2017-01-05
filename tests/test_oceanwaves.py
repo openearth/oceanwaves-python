@@ -47,26 +47,26 @@ def check_shape(init, shape):
 
 def test_energy_tospectral():
     ow = _generate_nonspectral()
-    ow_spc = ow.to_spectral(frequency=dict(DIMS)['frequency'])
-    assert_almost_equals(np.sum(np.abs(ow.energy.values - ow_spc.Hm0().values)), 0.)
+    ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
+    assert_almost_equals(np.sum(np.abs(ow['_energy'].values - ow_spc.Hm0().values)), 0.)
 
 
 def test_energy_todirectional():
     ow = _generate_nonspectral()
-    ow_dir = ow.to_directional(direction=dict(DIMS)['direction'])
-    assert_almost_equals(np.sum(np.abs(ow.energy.values - ow_dir.to_omnidirectional().energy.values)), 0.)
+    ow_dir = ow.as_directional(direction=dict(DIMS)['direction'])
+    assert_almost_equals(np.sum(np.abs(ow['_energy'].values - ow_dir.as_omnidirectional()['_energy'].values)), 0.)
 
     
 def test_energy_todirectionalspectrum():
     ow = _generate_nonspectral()
-    ow_spc = ow.to_spectral(frequency=dict(DIMS)['frequency'])
-    ow_dir = ow_spc.to_directional(direction=dict(DIMS)['direction'])
+    ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
+    ow_dir = ow_spc.as_directional(direction=dict(DIMS)['direction'])
 
-    E1 = ow_dir.energy.values
+    E1 = ow_dir['_energy'].values
     E2 = np.trapz(E1, ow_dir.coords['direction'].values, axis=-1)
     E3 = np.trapz(E2, ow_dir.coords['frequency'].values, axis=-1)
 
-    assert_almost_equals(np.sum(np.abs(ow.energy.values - E3)), 0.)
+    assert_almost_equals(np.sum(np.abs(ow['_energy'].values**2./16. - E3)), 0.)
 
 
 ### STANDARD TEST OBJECTS
@@ -74,7 +74,7 @@ def test_energy_todirectionalspectrum():
 def _generate_nonspectral():
     dims = dict(DIMS)
     ow = OceanWaves(time=dims['time'],
-                    energy=[1.] * len(dims['time']),
+                    energy=[1.5] * len(dims['time']),
                     energy_units='m')
     return ow
 

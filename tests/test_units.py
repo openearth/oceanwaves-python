@@ -18,14 +18,14 @@ DIMS = [('time',      [datetime(1970,1,1,0),
 
 def test_units_tospectral():
     ow = _generate_nonspectral()
-    ow_spc = ow.to_spectral(frequency=dict(DIMS)['frequency'])
+    ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
     assert_equals(ow_spc.energy.units, 'm^2 Hz^-1')
 
     
 def test_units_todirectional():
     ow = _generate_nonspectral()
-    ow_spc = ow.to_spectral(frequency=dict(DIMS)['frequency'])
-    ow_dir = ow_spc.to_directional(direction=dict(DIMS)['direction'])
+    ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
+    ow_dir = ow_spc.as_directional(direction=dict(DIMS)['direction'])
     assert_equals(ow_dir.energy.units, 'm^2 Hz^-1 deg^-1')
 
     
