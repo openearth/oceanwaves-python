@@ -14,6 +14,8 @@ from .units import simplify
 from .plot import OceanWavesPlotMethods
 from .spectral import *
 from .swan import *
+from .datawell import *
+from .wavedroid import *
 
 
 # initialize logger
@@ -23,6 +25,8 @@ logger = logging.getLogger(__name__)
 # initialize readers
 from_swan = SwanSpcReader()
 from_swantable = SwanTableReader()
+from_datawell = DatawellReader()
+from_wavedroid = WaveDroidReader()
 
 
 class OceanWaves(xr.Dataset):
@@ -755,6 +759,36 @@ class OceanWaves(xr.Dataset):
         return self
 
 
+    @property
+    def from_swan(self):
+
+        return SwanSpcReader()
+
+    
+    @property
+    def from_swantable(self):
+
+        return SwanTableReader()
+
+
+    @property
+    def from_datawell(self):
+
+        return DatawellReader()
+
+
+    @property
+    def from_wavedroid(self):
+
+        return WaveDroidReader()
+
+
+    @property
+    def to_swan(self):
+
+        return SwanSpcWriter(self)
+        
+        
     def to_netcdf(self, *args, **kwargs):
 
         obj = self.copy()
@@ -763,24 +797,6 @@ class OceanWaves(xr.Dataset):
         return super(OceanWaves, obj).to_netcdf(*args, **kwargs)
 
     
-    @property
-    def from_swan(self):
-
-        return SwanSpcReader()
-
-    
-    @property
-    def to_swan(self):
-
-        return SwanSpcWriter(self)
-        
-        
-    @property
-    def from_swantable(self):
-
-        return SwanTableReader()
-
-
     @property
     def plot(self):
 
