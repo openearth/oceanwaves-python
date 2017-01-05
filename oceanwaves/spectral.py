@@ -40,7 +40,7 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
         alpha = 1. / (.23 + .03 * gamma - .185 / (1.9 + gamma)) / 16.
     else:
         raise ValueError('Unknown method: %s' % method)
-        
+
     E_pm  = alpha * Hm0**2 * Tp**-4 * f**-5 * np.exp(-1.25 * (Tp * f)**-4)
         
     # JONSWAP

@@ -53,8 +53,12 @@ def simplify(units):
     # treat groups seprately
     while re.search(RE_GROUPS, units) is not None:
         units = re.sub(RE_GROUPS, simplify_group, units)
-
-    return format(parse(units))
+    parts = parse(units)
+    
+    # prevent odd units
+    parts = prevent_odd_units(parts)
+    
+    return format(parts)
 
 
 def format(parts, order=['kg','m','s','Hz']):
@@ -81,9 +85,6 @@ def format(parts, order=['kg','m','s','Hz']):
     # order units
     parts = sorted(parts, key=lambda x: order.index(x[0])
                    if x[0] in order else np.inf)
-
-    # prevent odd units
-    parts = prevent_odd_units(parts)
     
     # format individual units
     for i, (u, e) in enumerate(parts):

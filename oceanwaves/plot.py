@@ -2,6 +2,7 @@ import functools
 import numpy as np
 import matplotlib.pyplot as plt
 from xarray.plot.plot import _PlotMethods
+from matplotlib.projections import PolarAxes
 
 
 def spatial_map(darray, x, y, ax=None, scale=.1, dim='location',
@@ -157,7 +158,7 @@ class OceanWavesPlotMethods(_PlotMethods):
             Arguments passed to super class
 
         '''
-        
+
         self._x = x
         self._y = y
         super(OceanWavesPlotMethods, self).__init__(darray, **kwargs)
@@ -173,7 +174,12 @@ class OceanWavesPlotMethods(_PlotMethods):
                                        sharex = False,
                                        sharey = False))
 
-        return super(OceanWavesPlotMethods, self).__call__(**kwargs)
+        r = super(OceanWavesPlotMethods, self).__call__(**kwargs)
+
+        self.find_axes(r)
+        self.rotate_axes()
+        
+        return r
 
 
     @functools.wraps(spatial_map)
@@ -181,4 +187,37 @@ class OceanWavesPlotMethods(_PlotMethods):
         '''Plot wave data on map'''
         if self._x is None or self._y is None:
             raise ValueError('Cannot plot map if locations are not defined')
-        return spatial_map(self._da, self._x, self._y, ax=ax, **kwargs)
+        self._axes = spatial_map(self._da, self._x, self._y, ax=ax, **kwargs)[1]
+        self.rotate_axes()
+        return self._axes
+
+
+    def find_axes(self, r):
+
+        # find axes
+        try:
+            self._axes = r.axes.flatten()
+        except:
+            try:
+                self._axes = r.get_axes()
+            except:
+                self._axes = r
+
+        try:
+            iter(self._axes)
+        except:
+            self._axes = [self._axes]
+            
+                
+    def rotate_axes(self):
+
+        # rotate polars
+        try:
+            for ax in self._axes:
+                if isinstance(ax, PolarAxes):
+                    ax.set_theta_zero_location('N')
+                    ax.set_theta_direction(-1)
+        except:
+            pass
+
+

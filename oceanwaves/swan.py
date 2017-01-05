@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 from datetime import datetime
+from collections import OrderedDict
 
 import oceanwaves
 
@@ -51,7 +52,7 @@ class SwanSpcReader:
         self.locations = []
         self.frequencies = []
         self.directions = []
-        self.specs = []
+        self.specs = OrderedDict()
         self.quantities = []
 
         self.l = 0 # location counter
@@ -116,12 +117,17 @@ class SwanSpcReader:
 
     def to_oceanwaves(self):
 
+        if self.specs.has_key('VaDens'):
+            energy_units = self.specs['VaDens']['units']
+        else:
+            energy_units = None
+            
         kwargs = dict(location=self.locations,
                       location_units='m' if self.crs is None else 'deg',
                       frequency=self.frequencies,
                       frequency_units='Hz',
                       frequency_convention=self.frequency_convention,
-                      energy_units=self.specs[0][1],
+                      energy_units=energy_units,
                       attrs=dict(comments=self.comments),
                       crs=self.crs)
 
@@ -208,14 +214,18 @@ class SwanSpcReader:
         else:
             raise ValueError('Number of quantities not understood: %s' % lines[1])
 
-        self.specs = []
+        self.specs = OrderedDict()
         for i in range(n):
             q = []
             for j in range(3):
                 m = re.match('\s*([^\s]+)', lines[2+3*i+j])
                 if m:
                     q.append(m.groups()[0])
-            self.specs.append(tuple(q))
+
+            if len(q) == 3:
+                self.specs[q[0]] = dict(zip(('units', 'fill_value'), q[1:]))
+            else:
+                logging.warn('Skipped invalid quantity definiton: %s' % ' '.join(q))
 
         self.n += 1 + 3*n
 
@@ -435,7 +445,7 @@ class SwanSpcWriter:
             self.fp.write('-99.0\n')
             self.fp.write('NDIR\n') # TODO: read convention from OceanWaves object
             self.fp.write('degr\n')
-            self.fp.write('-9990\n')
+            self.fp.write('-999\n')
             self.fp.write('DSPRDEGR\n')
             self.fp.write('degr\n')
             self.fp.write('-9\n')

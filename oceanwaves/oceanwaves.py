@@ -82,11 +82,11 @@ class OceanWaves(xr.Dataset):
                 kwargs = obj._extract_initialization_args(**kwargs)
             elif isinstance(obj, xr.Dataset):
                 args.pop(0)
-                obj_ow = OceanWaves(*args, **kwargs).merge(obj, new_only=True)
+                obj_ow = OceanWaves(*args, **kwargs).merge(obj)
                 kwargs = obj_ow._extract_initialization_args(**kwargs)
                                     
             self.initialize(*args, **kwargs)
-            self.merge(obj, new_only=True, inplace=True)
+            self.merge(obj, inplace=True)
         else:
             self.initialize(*args, **kwargs)
                         
@@ -275,9 +275,9 @@ class OceanWaves(xr.Dataset):
             New OceanWaves object
 
         '''
-        
+
         settings = self._extract_initialization_args(**kwargs)
-        return OceanWaves(**settings).merge(self, new_only=True)
+        return OceanWaves(**settings).restore(self)
 
 
     def _extract_initialization_args(self, **kwargs):
@@ -331,7 +331,7 @@ class OceanWaves(xr.Dataset):
 
         # add additional arguments
         settings.update(self.attrs['_init'])
-        settings.update(**kwargs)
+        settings.update(kwargs)
 
         return settings
 
@@ -519,6 +519,7 @@ class OceanWaves(xr.Dataset):
 
         if self.has_dimension('frequency', raise_error=True):
 
+            dims = OrderedDict(self.dims)
             coords = OrderedDict(self.coords)
             k = self._key_lookup('_energy')
             E = self.variables[k].values
@@ -528,10 +529,12 @@ class OceanWaves(xr.Dataset):
                 k = self._key_lookup('_direction')
                 theta = coords.pop(k).values
                 E = np.abs(np.trapz(E, theta, axis=-1))
+                dims.pop(k)
 
             # integrate frequencies
             k = self._key_lookup('_frequency')
             f = coords.pop(k).values
+            dims.pop(k)
             if f_min == 0. and f_max == np.inf:
                 
                 m = np.trapz(E * f**n, f, axis=-1)
@@ -547,23 +550,23 @@ class OceanWaves(xr.Dataset):
                 
                 m = scipy.integrate.cumtrapz(E * f**n, f, axis=-1, initial=0)
 
-                dims = []
+                vals = []
                 if self.has_dimension('time'):
                     k = self._key_lookup('_time')
-                    dims.append(coords[k].values.flatten().astype(np.float))
+                    vals.append(coords[k].values.flatten().astype(np.float))
                 if self.has_dimension('location'):
                     k = self._key_lookup('_location')
-                    dims.append(coords[k].values.flatten().astype(np.float))
+                    vals.append(coords[k].values.flatten().astype(np.float))
                     
-                points = tuple(dims + [f.flatten()])
+                points = tuple(vals + [f.flatten()])
                 
-                xi_min = zip(*[x.flatten() for x in np.meshgrid(*(dims + [f_min]))])
-                xi_max = zip(*[x.flatten() for x in np.meshgrid(*(dims + [f_max]))])
+                xi_min = zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_min]))])
+                xi_max = zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_max]))])
 
                 m_min = scipy.interpolate.interpn(points, m, xi_min)
                 m_max = scipy.interpolate.interpn(points, m, xi_max)
                 
-                m = (m_max - m_min).reshape([len(x) for x in dims])
+                m = (m_max - m_min).reshape([len(x) for x in vals])
 
             # determine units
             k = self._key_lookup('_energy')
@@ -573,7 +576,7 @@ class OceanWaves(xr.Dataset):
             units = E_units + ('*((%s)^%d)' % (f_units, n+1))
             units = simplify(units)
             
-            return xr.DataArray(m, dims=coords, coords=coords,
+            return xr.DataArray(m, dims=dims, coords=coords,
                                 attrs=dict(units=units))
 
 
@@ -599,7 +602,7 @@ class OceanWaves(xr.Dataset):
             return self
 
         frequency = np.asarray(frequency, dtype=np.float)
-        Frequency = frequency[frequency>0]
+        frequency = frequency[frequency>0]
         
         k = self._key_lookup('_energy')
         energy = self.variables[k].values
@@ -641,7 +644,8 @@ class OceanWaves(xr.Dataset):
         # reinitialize object with new dimensions
         return self.reinitialize(frequency=frequency,
                                  frequency_units=frequency_units,
-                                 energy=energy)
+                                 energy=energy,
+                                 energy_units=simplify(units))
 
 
     def as_directional(self, direction, direction_units='deg',
@@ -795,9 +799,9 @@ class OceanWaves(xr.Dataset):
         return self.variables[k].attrs['units']
 
 
-    def merge(self, other, new_only=False, **kwargs):
-        if new_only:
-            for k in self.variables.iterkeys():
+    def restore(self, other, **kwargs):
+        if self.attrs.has_key('_names'):
+            for k in self.attrs['_names'].iterkeys():
                 if k in other.variables.keys():
                     other = other.drop(k)
 
