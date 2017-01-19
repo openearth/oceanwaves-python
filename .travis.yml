@@ -2,7 +2,7 @@ language: python
 
 python:
   - "2.7"
-  - "3.5"
+#  - "3.5"
 
 install:
   - conda update --yes conda
@@ -22,3 +22,5 @@ before_install:
   
 script:
   - nosetests --with-xunit --with-coverage --xunit-file=nosetests.xml --cover-package=oceanwaves --cover-xml --cover-xml-file=coverage.xml --cover-html --cover-html-dir=coverage
+
+cache: pip
