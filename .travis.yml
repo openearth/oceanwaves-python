@@ -2,7 +2,7 @@ language: python
 
 python:
   - "2.7"
-  - "3.5"
+#  - "3.5"
 
 install:
   - conda update --yes conda
@@ -11,6 +11,8 @@ install:
   - source activate testenv
   - pip install -r requirements.txt
   - pip install -e .
+  - mkdir -p $HOME/.config/matplotlib
+  - echo backend : Agg >> $HOME/.config/matplotlib/matplotlibrc
   
 before_install:
   - if [ ${TRAVIS_PYTHON_VERSION:0:1} == "2" ]; then wget http://repo.continuum.io/miniconda/Miniconda-3.5.5-Linux-x86_64.sh -O miniconda.sh; else wget http://repo.continuum.io/miniconda/Miniconda3-3.5.5-Linux-x86_64.sh -O miniconda.sh; fi
