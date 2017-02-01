@@ -1,8 +1,14 @@
 import functools
 import numpy as np
-import matplotlib.pyplot as plt
 from xarray.plot.plot import _PlotMethods
-from matplotlib.projections import PolarAxes
+
+
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.projections import PolarAxes
+    HAS_MATPLOTLIB = True
+except ImportError:
+    HAS_MATPLOTLIB = False
 
 
 def spatial_map(darray, x, y, ax=None, scale=.1, dim='location',
@@ -41,6 +47,9 @@ def spatial_map(darray, x, y, ax=None, scale=.1, dim='location',
         Positionsed subplots visualizing data
 
     '''
+
+    if not HAS_MATPLOTLIB:
+        raise ImportError('Matplotlib not available')
 
     # create map axis
     if ax is None:
@@ -159,6 +168,9 @@ class OceanWavesPlotMethods(_PlotMethods):
 
         '''
 
+        if not HAS_MATPLOTLIB:
+            raise ImportError('Matplotlib not available')
+        
         self._x = x
         self._y = y
         super(OceanWavesPlotMethods, self).__init__(darray, **kwargs)
