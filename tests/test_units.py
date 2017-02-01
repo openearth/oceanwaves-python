@@ -14,14 +14,14 @@ DIMS = [('time',      [datetime(1970,1,1,0),
         ('direction', [0, 10, 20, 30, 40, 50, 60, 70, 80, 90])]
 
 CONVERSIONS = [('m^2 / m', 'm'),
-               ('m ^ 2 / m', 'm'),
-               ('m2 / m', 'm'),
-               ('m^3 / (m * m)', 'm'),
-               ('m^4 / (m * (m / m^-1))', 'm'),
-               ('m^5 / (m * m)^2', 'm'),
-               ('m^5 / (m * m)^2 + NAP', 'm + NAP'),
-               ('(kg * m^2 * s^2)^2 / (kg^2 * m^3 * s^4)', 'm'),
-               ('(m^2 / Hz) * m^-2', 's')]
+               ('m ^ 2 / m', 'm'), # test spaces
+               ('m2 / m', 'm'), # test missing exponent
+               ('m^3 / (m * m)', 'm'), # test groups
+               ('m^4 / (m * (m / m^-1))', 'm'), # test nested groups
+               ('m^5 / (m * m)^2', 'm'), # test group exponents
+               ('m^5 / (m * m)^2 + NAP', 'm + NAP'), # test terms
+               ('(kg * m^2 * s^2)^2 / (kg^2 * m^3 * s^4)', 'm'), # test multiple units
+               ('(m^2 / Hz) * m^-2', 's')] # test herz to seconds conversion
 
 
 ### CHECK UNITS

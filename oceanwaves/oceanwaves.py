@@ -96,15 +96,17 @@ class OceanWaves(xr.Dataset):
                         
         
     def initialize(self, time=None, location=None, frequency=None,
-                   direction=None, energy=None, time_units='s',
-                   location_units='m', frequency_units='Hz',
-                   direction_units='deg', energy_units='m^2/Hz',
-                   time_var='time', location_var='location',
-                   frequency_var='frequency',
+                   direction=None, energy=None, spreading=None,
+                   time_units='s', location_units='m',
+                   frequency_units='Hz', direction_units='deg',
+                   energy_units='m^2/Hz', time_var='time',
+                   location_var='location', frequency_var='frequency',
                    direction_var='direction', energy_var='energy',
+                   spreading_var='spreading',
                    frequency_convention='absolute',
-                   direction_convention='nautical', attrs={},
-                   crs=None, **kwargs):
+                   direction_convention='nautical',
+                   spreading_convention='cosine', attrs={}, crs=None,
+                   **kwargs):
         '''Initialize class
 
         Sets dimensions, converts coordinates and fills the dataset,
@@ -859,10 +861,11 @@ class OceanWaves(xr.Dataset):
         if self.attrs['_names'].has_key(dim):
             dim = self.attrs['_names'][dim]
         if dim in self.dims.keys():
-            if len(self.variables[dim].values) > 1:
-                return True
-            elif raise_error:
-                raise ValueError('Object has dimension "%s", but it has a length unity' % dim)
+            return True
+            #if len(self.variables[dim].values) > 1:
+            #    return True
+            #elif raise_error:
+            #    raise ValueError('Object has dimension "%s", but it has a length unity' % dim)
         elif raise_error:
             raise ValueError('Object has no dimension "%s"' % dim)
 
