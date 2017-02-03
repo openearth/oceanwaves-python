@@ -433,14 +433,14 @@ class SwanSpcWriter:
         if self.obj.has_dimension('direction'):
             
             self.fp.write('%4d\n' % 1)
-            self.fp.write('VarDens\n')
+            self.fp.write('VaDens\n')
             self.fp.write('m2/Hz/degr\n') # TODO: read units from OceanWaves object
             self.fp.write('-99.0\n') # TODO: replace NaN with fill value
 
         else:
 
             self.fp.write('%4d\n' % 3)
-            self.fp.write('VarDens\n')
+            self.fp.write('VaDens\n')
             self.fp.write('m2/Hz/degr\n')
             self.fp.write('-99.0\n')
             self.fp.write('NDIR\n') # TODO: read convention from OceanWaves object
