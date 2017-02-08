@@ -169,4 +169,9 @@ def prevent_odd_units(parts):
         if p[0].upper() == 'HZ' and p[1] == -1.:
             parts = [('s', 1.)]
 
+    # replace degr with deg
+    for i, p in enumerate(parts):
+        if p[0].upper() == 'DEGR':
+            parts[i] = ('deg', p[1])
+
     return parts

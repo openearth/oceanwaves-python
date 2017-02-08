@@ -255,7 +255,7 @@ class OceanWaves(xr.Dataset):
 
         # set wave energy
         if self._isvalid(energy):
-            self['_energy'] = dims, energy
+            self['_energy'] = dims, energy.squeeze()
 
         # convert coordinates
         self.convert_coordinates(crs)
@@ -362,7 +362,7 @@ class OceanWaves(xr.Dataset):
 
         # compute moments
         m0 = self.moment(0, f_min=f_min, f_max=f_max)
-
+        
         # compute wave height
         H = 4. * np.sqrt(m0)
 
@@ -522,6 +522,9 @@ class OceanWaves(xr.Dataset):
             time and location in the dataset
 
         '''
+
+        if self.has_dimension('direction'):
+            self = self.as_omnidirectional()
 
         if self.has_dimension('frequency', raise_error=True):
 
@@ -722,8 +725,8 @@ class OceanWaves(xr.Dataset):
         # expand energy matrix
         k1 = self._key_lookup('_energy')
         k2 = self._key_lookup('_direction')
-        energy = np.trapz(self.variables[k1].values,
-                          self.coords[k2].values, axis=-1)
+        energy = np.abs(np.trapz(self.variables[k1].values,
+                                 self.coords[k2].values, axis=-1))
 
         # determine units
         units = '(%s)*(%s)' % (self.variables[k1].attrs['units'],

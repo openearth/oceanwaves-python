@@ -236,7 +236,7 @@ class SwanSpcReader:
         key = lines.pop(0)
         if key.startswith('FACTOR'):
             factor = lines.pop(0)
-            m = re.match('\s*([\d\.]+)', factor)
+            m = re.match('\s*([\+\-\d\.Ee]+)\s*$', factor)
             if m:
                 f = float(m.groups()[0])
             else:
