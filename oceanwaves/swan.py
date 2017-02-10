@@ -255,7 +255,16 @@ class SwanSpcReader:
 
 
     def parse_nodata(self):
-        self.quantities.append(None)
+        if self.directional:
+            q = np.zeros((len(self.frequencies),
+                          len(self.directions)))
+        else:
+            q = np.zeros((len(self.frequencies),))
+
+        if self.stationary:
+            self.quantities.append(q)
+        else:
+            self.quantities[-1].append(q)
 
 
     def parse_timestamp(self):
@@ -469,7 +478,11 @@ class SwanSpcWriter:
             n = E.shape[2]
             for i in range(E.shape[0]):
                 
-                f = E[i,:,:].max() / 99999.
+                if E[i,:,:].max() == 0:
+                    f = 1.
+                else:
+                    f = E[i,:,:].max() / 99999.
+
                 self.fp.write('FACTOR\n')
                 self.fp.write('%4e\n' % f)
 
