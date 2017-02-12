@@ -222,7 +222,7 @@ class OceanWaves(xr.Dataset):
                                                 attrs=dict(units=direction_units))
 
         # determine object shape
-        shp = tuple([len(c) for k, c in coords.iteritems() if k in dims])
+        shp = tuple([len(c) for k, c in coords.items() if k in dims])
 
         # initialize energy variable
         data_vars[energy_var]     = xr.DataArray(np.nan + np.zeros(shp),
@@ -304,7 +304,7 @@ class OceanWaves(xr.Dataset):
 
         settings = dict(crs = self.attrs['_crs'],
                         attrs = dict([(k, v)
-                                      for k, v in self.attrs.iteritems()
+                                      for k, v in self.attrs.items()
                                       if not k.startswith('_')]))
 
         # add dimensions
@@ -313,7 +313,7 @@ class OceanWaves(xr.Dataset):
                 k = self._key_lookup('_%s' % dim)
                 v = self.coords[k]
                 settings[dim] = v.values
-                if v.attrs.has_key('units'):
+                if 'units' in v.attrs:
                     settings['%s_units' % dim] = v.attrs['units']
 
         # add locations
@@ -328,11 +328,11 @@ class OceanWaves(xr.Dataset):
         k = self._key_lookup('_energy')
         v = self.variables[k]
         settings['energy'] = v.values
-        if v.attrs.has_key('units'):
+        if 'units' in v.attrs:
             settings['energy_units'] = v.attrs['units']
 
         # add variable names
-        for k, v in self.attrs['_names'].iteritems():
+        for k, v in self.attrs['_names'].items():
             settings['%s_var' % k] = v
 
         # add additional arguments
@@ -797,7 +797,7 @@ class OceanWaves(xr.Dataset):
     def to_netcdf(self, *args, **kwargs):
 
         obj = self.copy()
-        obj.attrs = {k:v for k, v in obj.attrs.iteritems() if not k.startswith('_')}
+        obj.attrs = {k:v for k, v in obj.attrs.items() if not k.startswith('_')}
                 
         return super(OceanWaves, obj).to_netcdf(*args, **kwargs)
 
@@ -832,7 +832,7 @@ class OceanWaves(xr.Dataset):
 
 
     def restore(self, other, **kwargs):
-        if self.attrs.has_key('_names'):
+        if '_names' in self.attrs:
             for k in self.attrs['_names'].iterkeys():
                 if k in other.variables.keys():
                     other = other.drop(k)
@@ -861,7 +861,7 @@ class OceanWaves(xr.Dataset):
 
         '''
 
-        if self.attrs['_names'].has_key(dim):
+        if dim in self.attrs['_names']:
             dim = self.attrs['_names'][dim]
         if dim in self.dims.keys():
             return True
@@ -907,8 +907,8 @@ class OceanWaves(xr.Dataset):
     def __setitem__(self, key, value):
         k = self._key_lookup(key)
         super(OceanWaves, self).__setitem__(k, value)
-        if not self[k].attrs.has_key('units'):
-            if self.attrs['_units'].has_key(key[1:]):
+        if 'units' not in self[k].attrs:
+            if key[1:] in self.attrs['_units']:
                 self[k].attrs['units'] = self.attrs['_units'][key[1:]]
 
     
@@ -916,12 +916,12 @@ class OceanWaves(xr.Dataset):
         if type(key) is dict:
             key0 = key.copy()
             key = {}
-            for k, v in key0.iteritems():
+            for k, v in key0.items():
                 key[self._key_lookup(k)] = v
         else:
             if key.startswith('_'):
                 keys = self.attrs['_names']
-                if keys.has_key(key[1:]):
+                if key[1:] in keys:
                     key = keys[key[1:]]
         return key
 
