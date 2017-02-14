@@ -30,4 +30,5 @@ The OceanWaves object can be written to:
 * Output supported by [xarray.Dataset](http://xarray.pydata.org/en/stable/generated/xarray.Dataset.html) (e.g. netcdf)
 
 Usage examples can be found in the IPython notebook [notebooks/oceanwaves.ipynb](https://github.com/openearth/oceanwaves-python/blob/master/notebooks/oceanwaves.ipynb).
+
 Source code documentation is hosted at http://oceanwaves.readthedocs.io/
