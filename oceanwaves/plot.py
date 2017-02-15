@@ -211,7 +211,7 @@ class OceanWavesPlotMethods(_PlotMethods):
             self._axes = r.axes.flatten()
         except:
             try:
-                self._axes = r.get_axes()
+                self._axes = r.axes()
             except:
                 self._axes = r
 
