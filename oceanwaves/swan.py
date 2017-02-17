@@ -259,7 +259,7 @@ class SwanSpcReader:
             q = np.zeros((len(self.frequencies),
                           len(self.directions)))
         else:
-            q = np.zeros((len(self.frequencies),))
+            q = np.zeros((len(self.frequencies), 3))
 
         if self.stationary:
             self.quantities.append(q)
