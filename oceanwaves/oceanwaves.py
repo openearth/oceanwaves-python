@@ -286,6 +286,25 @@ class OceanWaves(xr.Dataset):
         return OceanWaves(**settings).restore(self)
 
 
+    def iterdim(self, dim):
+        '''Iterate over given dimension
+
+        Parameters
+        ----------
+        dim : str
+            Name of dimension
+
+        '''
+
+        k = self._key_lookup(dim)
+        
+        if k in self.dims.keys():
+            for i in range(len(self[k])):
+                yield self.isel(**{k:i})
+        else:
+            yield self
+
+
     def _extract_initialization_args(self, **kwargs):
         '''Return updated initialization settings
 

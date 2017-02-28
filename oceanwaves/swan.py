@@ -405,6 +405,7 @@ class SwanSpcWriter:
             k = self.obj._key_lookup('_location')
             x = self.obj.variables['%s_x' % k].values
             y = self.obj.variables['%s_y' % k].values
+            self.fp.write('%4d\n' % len(x))
             for coords in zip(x, y):
                 self.fp.write('%10.2f %10.2f\n' % coords)
 
