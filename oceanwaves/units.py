@@ -46,7 +46,11 @@ def simplify(units):
             parts = [(u, e * exp) for u, e in parts]
         return ' %s' % format(parts)
         
-        
+
+    # only continue in case of string or unicode input
+    if type(units) not in [str, unicode]:
+        return units
+    
     # remove spaces around operators (space itself is also a multiplication operator)
     units = re.sub(RE_OPERATORS, r'\1', units)
 
