@@ -1,4 +1,5 @@
 import re
+import six
 import logging
 import numpy as np
 
@@ -48,7 +49,7 @@ def simplify(units):
         
 
     # only continue in case of string or unicode input
-    if type(units) not in [str, unicode]:
+    if type(units) not in six.string_types + (six.text_type,):
         return units
     
     # remove spaces around operators (space itself is also a multiplication operator)

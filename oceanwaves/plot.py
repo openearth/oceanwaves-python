@@ -4,6 +4,8 @@ from xarray.plot.plot import _PlotMethods
 
 
 try:
+    import matplotlib
+    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib.projections import PolarAxes
     HAS_MATPLOTLIB = True
@@ -180,8 +182,8 @@ class OceanWavesPlotMethods(_PlotMethods):
 
         # if data is directional, faceted and not yet polar, make it polar
         if 'direction' in self._da.dims:
-            if kwargs.has_key('col') or kwargs.has_key('row'):
-                if not kwargs.has_key('subplot_kws'):
+            if 'col' in kwargs.keys() or 'row' in kwargs.keys():
+                if not 'subplot_kws' in kwargs.keys():
                     kwargs.update(dict(subplot_kws = dict(projection = 'polar'),
                                        sharex = False,
                                        sharey = False))

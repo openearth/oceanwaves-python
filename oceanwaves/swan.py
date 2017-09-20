@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import os
 import re
 import glob
@@ -10,7 +12,7 @@ import pandas as pd
 from datetime import datetime
 from collections import OrderedDict
 
-import oceanwaves
+import oceanwaves.oceanwaves
 
 
 TABLE_UNITS_FILE = 'table_units.json'
@@ -117,7 +119,7 @@ class SwanSpcReader:
 
     def to_oceanwaves(self):
 
-        if self.specs.has_key('VaDens'):
+        if 'VaDens' in self.specs.keys():
             energy_units = self.specs['VaDens']['units']
         else:
             energy_units = None
@@ -147,7 +149,7 @@ class SwanSpcReader:
             else:
                 kwargs.update(dict(energy=[q[:,0] for q in self.quantities]))
 
-        return oceanwaves.OceanWaves(**kwargs)
+        return oceanwaves.oceanwaves.OceanWaves(**kwargs)
 
             
     def parse_comments(self):
@@ -516,7 +518,7 @@ class SwanSpcWriter:
     def _get_convention(self, convention, default=None):
 
         conventions = self._get_attr('_conventions', default={})
-        if conventions.has_key(convention):
+        if convention in conventions.keys():
             return conventions[convention]
         else:
             return default
@@ -524,7 +526,7 @@ class SwanSpcWriter:
         
     def _get_attr(self, attr, default=None):
 
-        if self.obj.attrs.has_key(attr):
+        if attr in self.obj.attrs.keys():
             return self.obj.attrs[attr]
         else:
             return default
@@ -550,11 +552,11 @@ class SwanTableReader:
 
         ds = self.read(fpath, headers=headers)
 
-        return oceanwaves.OceanWaves(ds,
-                                     location=zip(ds['Xp'], ds['Yp']),
-                                     energy_var=energy_var,
-                                     **kwargs)
-
+        return oceanwaves.oceanwaves.OceanWaves(ds,
+                                                location=list(zip(ds['Xp'], ds['Yp'])),
+                                                energy_var=energy_var,
+                                                **kwargs)
+    
         
     def read(self, fpath, headers=[]):
         ''' Read swan table
@@ -605,7 +607,7 @@ class SwanTableReader:
                     # read variable names
                     _vars = []; _units=[]
                     for tvar in line.split():
-                        for svar,sunit in swanoutputs.iteritems():
+                        for svar,sunit in swanoutputs.items():
                             if tvar == svar:
                                 _vars.append(svar)
                                 _units.append(sunit)
@@ -640,7 +642,7 @@ class SwanTableReader:
                 if "Xp" and "Yp" in self.variables:
                         x = np.unique(df["Xp"])
                         y = np.unique(df["Yp"])
-                        self.locations = zip(x,y)
+                        self.locations = list(zip(x,y))
 
                 # group data by geographic location
                 grouped = df.groupby(["Xp","Yp"])
@@ -680,7 +682,7 @@ class SwanTableReader:
                     if "Xp" and "Yp" in self.variables:
                         x = np.unique(df["Xp"])
                         y = np.unique(df["Yp"])
-                        self.locations = zip(x,y)
+                        self.locations = list(zip(x,y))
                     # group data by geographic location
                     grouped = df.groupby(["Xp","Yp"])
                     # create the final dataset

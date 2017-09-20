@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import copy
 import pyproj
 import logging
@@ -10,12 +12,12 @@ from collections import OrderedDict
 from xarray.core.coordinates import DatasetCoordinates
 from xarray.core.dataset import DataVariables
 
-from .units import simplify
-from .plot import OceanWavesPlotMethods
-from .spectral import *
-from .swan import *
-from .datawell import *
-from .wavedroid import *
+from oceanwaves.units import simplify
+from oceanwaves.plot import OceanWavesPlotMethods
+from oceanwaves.spectral import *
+from oceanwaves.swan import *
+from oceanwaves.datawell import *
+from oceanwaves.wavedroid import *
 
 
 # initialize logger
@@ -194,7 +196,7 @@ class OceanWaves(xr.Dataset):
             coords[location_var]  = xr.Variable(location_var,
                                                 np.arange(len(location)))
             
-            x, y = zip(*location)
+            x, y = list(zip(*location))
             coords['%s_x' % location_var]   = xr.Variable(location_var,
                                                           np.asarray(x),
                                                           attrs=dict(units=location_units))
@@ -340,7 +342,7 @@ class OceanWaves(xr.Dataset):
             k = self._key_lookup('_location')
             x = self.variables['%s_x' % k].values
             y = self.variables['%s_y' % k].values
-            settings['location'] = zip(x, y)
+            settings['location'] = list(zip(x, y))
             settings['location_units'] = self.variables['%s_x' % k].attrs['units']
 
         # add energy
@@ -588,8 +590,8 @@ class OceanWaves(xr.Dataset):
                     
                 points = tuple(vals + [f.flatten()])
                 
-                xi_min = zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_min]))])
-                xi_max = zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_max]))])
+                xi_min = list(zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_min]))]))
+                xi_max = list(zip(*[x.flatten() for x in np.meshgrid(*(vals + [f_max]))]))
 
                 m_min = scipy.interpolate.interpn(points, m, xi_min)
                 m_max = scipy.interpolate.interpn(points, m, xi_max)
@@ -852,7 +854,7 @@ class OceanWaves(xr.Dataset):
 
     def restore(self, other, **kwargs):
         if '_names' in self.attrs:
-            for k in self.attrs['_names'].iterkeys():
+            for k in self.attrs['_names'].values():
                 if k in other.variables.keys():
                     other = other.drop(k)
 

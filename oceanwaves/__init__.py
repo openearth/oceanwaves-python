@@ -1,5 +1,7 @@
-from .oceanwaves import *
-from . import oceanwaves
-from . import spectral
-from . import units
-from . import plot
+from __future__ import absolute_import
+
+from oceanwaves.oceanwaves import *
+from oceanwaves import oceanwaves
+from oceanwaves import spectral
+from oceanwaves import units
+from oceanwaves import plot
