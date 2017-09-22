@@ -82,7 +82,8 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
     from math import gamma
     
     theta = np.asarray(theta, dtype=np.float)
-    
+
+    # convert units to radians
     if units.lower().startswith('deg'):
         theta = np.radians(theta)
         theta_peak = np.radians(theta_peak)
@@ -91,14 +92,16 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
     else:
         raise ValueError('Unknown units: %s')
 
+    # compute directional spreading
     #A1 = (2.**s) * (gamma(s / 2 + 1))**2. / (np.pi * gamma(s + 1))
     #p_theta = A1 * np.maximum(0., np.cos(theta - theta_peak))
-
     p_theta = np.maximum(0., np.cos(theta - theta_peak))**s
-            
+
+    # normalize directional spreading
     if normalize:
         p_theta /= np.trapz(p_theta, theta - theta_peak)
-                
+
+    # convert to original units
     if units.lower().startswith('deg'):
         p_theta = np.radians(p_theta)
     

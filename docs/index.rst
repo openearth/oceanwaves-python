@@ -22,6 +22,9 @@ developed by Caio Eadi Stringari.
 The source code of the oceanwaves package can be found at
 `<https://github.com/openearth/oceanwaves-python>`_.
 
+Usage examples can be found in this notebook
+`<https://github.com/openearth/oceanwaves-python/blob/master/notebooks/oceanwaves.ipynb>`_.
+
 Contents:
 
 .. toctree::

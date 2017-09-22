@@ -22,15 +22,14 @@ SWAN_TIME_FORMAT = '%Y%m%d.%H%M%S'
 class SwanSpcReader:
 
 
-    stationairy = True
-    directional = False
-
-    crs = None
-    frequency_convention = None
-    direction_convention = None
-
-
     def __init__(self):
+
+        self.stationairy = True
+        self.directional = False
+
+        self.crs = None
+        self.frequency_convention = None
+        self.direction_convention = None
 
         self.reset()
 
@@ -145,9 +144,14 @@ class SwanSpcReader:
             if not self.stationary:
                 kwargs.update(dict(time=self.time,
                                    time_units='s',
-                                   energy=[[q2[:,0] for q2 in q1] for q1 in self.quantities]))
+                                   energy=[[q2[:,0] for q2 in q1] for q1 in self.quantities],
+                                   direction=[[q2[:,1] for q2 in q1] for q1 in self.quantities],
+                                   spreading=[[q2[:,2] for q2 in q1] for q1 in self.quantities]))
             else:
-                kwargs.update(dict(energy=[q[:,0] for q in self.quantities]))
+                kwargs.update(dict(energy=[q[:,0] for q in self.quantities],
+                                   direction=[q[:,1] for q in self.quantities],
+                                   spreading=[q[:,2] for q in self.quantities]))
+        kwargs.update(dict(directional=self.directional))
 
         return oceanwaves.oceanwaves.OceanWaves(**kwargs)
 
@@ -446,20 +450,22 @@ class SwanSpcWriter:
             
             self.fp.write('%4d\n' % 1)
             self.fp.write('VaDens\n')
-            self.fp.write('m2/Hz/degr\n') # TODO: read units from OceanWaves object
+            self.fp.write('%s\n' % self._get_units('_energy', 'm^2 s'))
             self.fp.write('-99.0\n') # TODO: replace NaN with fill value
 
         else:
 
+            convention = self._get_convention('direction', 'nautical').lower()
+
             self.fp.write('%4d\n' % 3)
             self.fp.write('VaDens\n')
-            self.fp.write('m2/Hz/degr\n')
+            self.fp.write('%s\n' % self._get_units('_energy', 'm^2 s'))
             self.fp.write('-99.0\n')
-            self.fp.write('NDIR\n') # TODO: read convention from OceanWaves object
-            self.fp.write('degr\n')
+            self.fp.write('%s\n' % ('CDIR' if convention == 'cartesion' else 'NDIR'))
+            self.fp.write('%s\n' % self._get_units('_direction', 'deg'))
             self.fp.write('-999\n')
             self.fp.write('DSPRDEGR\n')
-            self.fp.write('degr\n')
+            self.fp.write('%s\n' % self._get_units('_spreading', 'deg'))
             self.fp.write('-9\n')
 
 
@@ -472,6 +478,16 @@ class SwanSpcWriter:
     def write_data(self):
         
         E = self.obj['_energy'].values
+        
+        try:
+            D = self.obj['_direction'].values
+        except:
+            D = np.zeros(E.shape)
+
+        try:
+            S = self.obj['_spreading'].values
+        except:
+            S = np.zeros(E.shape)
         
         if self.obj.has_dimension('direction'):
 
@@ -501,9 +517,9 @@ class SwanSpcWriter:
             n = E.shape[1]
             for i in range(E.shape[0]):
                 self.fp.write('LOCATION %4d\n' % i)
-                fmt = '%8e 0.0 0.0\n' # TODO: set peak direction and directional spreading
+                fmt = '%8e %8e %8e\n'
                 for j in range(E.shape[1]):
-                    self.fp.write(fmt % E[i,j])
+                    self.fp.write(fmt % (E[i,j], D[i,j], S[i,j]))
 
 
     def _write_block(self, header, data, fmt='%10.4f'):
@@ -531,199 +547,188 @@ class SwanSpcWriter:
         else:
             return default
 
+        
+    def _get_units(self, variable, default=None):
+
+        if variable in self.obj.variables.keys():
+            attrs = self.obj.variables[variable].attrs
+            if 'units' in attrs.keys():
+                return attrs['units']
+        return default
+
 
 class SwanTableReader:
-
-
-    stationary = True
     
-    run = None
-    table = None
-    variables = []
-    units = []
     
-
     def __init__(self):
-
+        
         pass
-
-
-    def __call__(self, fpath, headers=[], energy_var='Hsig', **kwargs):
-
-        ds = self.read(fpath, headers=headers)
-
-        return oceanwaves.oceanwaves.OceanWaves(ds,
-                                                location=list(zip(ds['Xp'], ds['Yp'])),
-                                                energy_var=energy_var,
-                                                **kwargs)
     
-        
-    def read(self, fpath, headers=[]):
-        ''' Read swan table
+    
+    def __call__(self, fpath, columns=[], time_var='Time',
+                 location_vars=['Xp', 'Yp'], frequency_var='RTpeak',
+                 direction_var='Dir', energy_var='Hsig', **kwargs):
 
-        Parameters
-        ----------
-        fpath : str
-            Input file name (ex: /data/swan/table.tbl)
-        headers : list of strings
-            If using NOHEAD, use headers to inform the reader the names of the
-            variables being rad.
+        # clear variables
+        self.headers = []
+        self.columns = []
+        self.units = []
+        self.data = []
+        self.attrs = {}
         
+        # assume columns names and units
+        self.columns = columns
+        self.get_units()
+        
+        # read data, column names and units from file
+        self.read(fpath)
+        self.parse_headers()
+        self.check_integrity()
+        
+        return self.to_oceanwaves(energy_var=energy_var,
+                                  time_var=time_var,
+                                  **kwargs)
+    
+    
+    def to_oceanwaves(self, time_var='Time',
+                      location_vars=['Xp','Yp'],
+                      frequency_var='RTpeak', direction_var='Dir',
+                      energy_var='Hsig', **kwargs):
+        '''Converts raw data in OceanWaves object
+
+        Converts raw data and column names into Pandas
+        DataFrame. Groups the DataFrame by time and location. Converts
+        the MultiIndex DataFrame into an xarray Dataset. Adds unit
+        information as attributes and uses the resulting Dataset to
+        initialize a OceanWaves object.
+
+        See for possible initialization arguments the
+        :class:`OceanWaves` class.
+
         Returns
         -------
-        ds : xr.Dataset()
-            dataset with the parsed data
-        
-        '''
+        OceanWaves
+            OceanWaves object.
 
-        # list of all table variables
-        swanoutputs = {}
+        '''
+        
+        df = pd.DataFrame(self.data, columns=self.columns)
+        
+        # group by time
+        if time_var in df.columns:
+            df[time_var] = ([datetime.strptime('%15.6f' % t, SWAN_TIME_FORMAT)
+                             for t in df[time_var].values])
+            dfs1 = []
+            grouped = df.groupby(time_var)
+            for t, group in grouped:
+                group.set_index(time_var, drop=True, append=True, inplace=True)
+                dfs1.append(group)
+        else:
+            dfs1 = [df]
+            
+        # group by location
+        if all([v in df.columns for v in location_vars]):
+            dfs2 = []
+            for df in dfs1:
+                grouped = df.groupby(location_vars)
+                for (x, y), group in grouped:
+                    group = group.copy()
+                    group['Location'] = [(x,y)] * len(group)
+                    group.drop(location_vars, axis=1, inplace=True)
+                    group.set_index('Location', drop=True, append=True, inplace=True)
+                    dfs2.append(group)
+        else:
+            dfs2 = dfs1
+        
+        # concatenate per time/location dataframes and reset index
+        df = pd.concat(dfs2, axis=0)
+        df = df.reset_index(0, drop=True)
+        
+        # convert dataframe to dataset and add units
+        xa = df.to_xarray()
+        for k in xa.variables.keys():
+            if k in self.columns:
+                ix = self.columns.index(k)
+                xa.variables[k].attrs['units'] = self.units[ix]
+            elif k == 'Location':
+                units = set()
+                for v in location_vars:
+                    ix = self.columns.index(v)
+                    units.add(self.units[ix])
+                if len(units) == 1:
+                    xa.variables[k].attrs['units'] = units.pop()
+                else:
+                    raise ValueError('Inconsistent units for location coordinates.')
+            else:
+                xa.variables[k].attrs['units'] = '1'
+               
+        # convert dataset to oceanwaves object
+        return oceanwaves.OceanWaves(xa,
+                                     time_var=time_var,
+                                     location_var='Location',
+                                     frequency_var=frequency_var,
+                                     direction_var=direction_var,
+                                     energy_var=energy_var,
+                                     **kwargs)    
+    
+    
+    def read(self, fpath):
+        '''Read headers and data seperately'''
+        
+        with open(fpath, 'r') as fp:
+            for line in fp:
+                if line.startswith('%'):
+                    self.headers.append(line[1:].strip())
+                else:
+                    self.data.append([float(x) for x in line.split()])
+                    
+        self.data = np.asarray(self.data)
+        
+        
+    def parse_headers(self):
+        '''Parse headers into attributes, units and column names'''
+        
+        for line in self.headers:
+            if len(line) == 0:
+                continue
+            elif ':' in line:
+                self.attrs.update(dict([re.split('\s*:\s*', x)
+                                        for x in re.split('\s{2,}', line)]))
+            elif re.search('\[\S*\]', line):
+                self.units = re.findall('\[\s*(\S*)\s*\]', line)
+            else:
+                self.columns = re.split('\s+', line)
+                
+                
+    def check_integrity(self):
+        '''Check integrity of parsed data
+
+        Raises
+        ------
+        ValueError
+            If no columns are specified when using NOHEAD option or if
+            the number of column names or units do not match the
+            number of data columns.
+
+        '''
+        
+        if not self.columns:
+            raise ValueError('Column names must be specified '
+                             'when using \'NOHEAD\' option.')
+        if self.data.shape[1] != len(self.columns):
+            raise ValueError('Number of column names (%d) does not match '
+                             'number of data columns (%d).' % (self.data.shape[1], 
+                                                               len(self.columns)))
+        if self.data.shape[1] != len(self.units):
+            raise ValueError('Number of units (%d) does not match '
+                             'number of data columns (%d).' % (self.data.shape[1], 
+                                                               len(self.units)))
+
+        
+    def get_units(self):
+        '''Read relevant units from JSON file'''
+        
         jsonpath = os.path.join(os.path.split(__file__)[0], TABLE_UNITS_FILE)
         if os.path.exists(jsonpath):
             with open(jsonpath, 'r') as fp:
-                swanoutputs = json.load(fp)
-
-        # loop over lines
-        with open(fpath, 'r') as fp:
-            self.lines = fp.readlines()
-
-            self.n = 0 # line counter
-            self.l = 0 # location counter
-
-            data = []
-            while self.n < len(self.lines):
-                line = self._currentline()
-
-                # read the headers
-                if line.startswith('%'):
-                    # read swan metadata
-                    if "SWAN" in line:
-                        self.version = line.split('version')[1].strip(":").split(" ")[0].strip()
-                    # read metadata
-                    if "Run" in line:
-                        self.run = line.split('Run')[1].strip(":").split(" ")[0].strip()
-                    if "Table" in line:
-                        self.table = line.split('Table')[1].strip(":").split(" ")[0].strip()
-                    # read variable names
-                    _vars = []; _units=[]
-                    for tvar in line.split():
-                        for svar,sunit in swanoutputs.items():
-                            if tvar == svar:
-                                _vars.append(svar)
-                                _units.append(sunit)
-                    if _vars:
-                        self.variables = _vars
-                        self.units = _units
-
-                # read data
-                else:
-                    data.append(line.split())
-                # update line
-                self.n += 1
-
-            # update stationary variable
-            if "Time" in self.variables:
-                self.stationary = False
-
-            # stationary cases
-            if self.stationary:
-
-                if self.variables:
-                    df = pd.DataFrame(np.array(data).astype(float),
-                                      columns=self.variables)
-                else:
-                    if headers:
-                        df = pd.DataFrame(np.array(data).astype(float),
-                                        columns=headers)
-                    else:
-                        raise ValueError("When using \'NOHEAD\' option, the user must inform the variable names")
-
-                # figure out locations
-                if "Xp" and "Yp" in self.variables:
-                        x = np.unique(df["Xp"])
-                        y = np.unique(df["Yp"])
-                        self.locations = list(zip(x,y))
-
-                # group data by geographic location
-                grouped = df.groupby(["Xp","Yp"])
-                # create the final dataset
-                dss = []
-                for group in grouped:
-                    ds_at_xy = xr.Dataset()
-                    # extract one dataframe at each location
-                    df_at_xy = group[1].copy()
-                    # organize dataframe
-                    x = df_at_xy["Xp"].values[0]; df_at_xy.drop("Xp",axis=1,inplace=True)
-                    y = df_at_xy["Yp"].values[0]; df_at_xy.drop("Yp",axis=1,inplace=True)
-                    # organize dataset
-                    for var in df_at_xy.columns:
-                        ds_at_xy[var] = df_at_xy[var].values[0]
-                    # set locations
-                    ds_at_xy.coords["Xp"] = x
-                    ds_at_xy.coords["Yp"] = y
-                    # append
-                    dss.append(ds_at_xy)
-                # concatenate
-                ds = xr.concat(dss,dim='location')
-
-            # non stationary cases
-            else:
-                # could figure out variable names
-                if self.variables:
-                    # read raw data into the dataframe
-                    df = pd.DataFrame(np.array(data),columns=self.variables)
-                    # update time
-                    self.time = np.unique([datetime.strptime(t, SWAN_TIME_FORMAT)
-                                           for t in df["Time"].values])
-                    # update dataframe
-                    df.drop("Time",axis=1,inplace=True)
-                    df = df.astype(float)
-                    # figure out locations
-                    if "Xp" and "Yp" in self.variables:
-                        x = np.unique(df["Xp"])
-                        y = np.unique(df["Yp"])
-                        self.locations = list(zip(x,y))
-                    # group data by geographic location
-                    grouped = df.groupby(["Xp","Yp"])
-                    # create the final dataset
-                    dss = []
-                    for group in grouped:
-                        # extract one dataframe at each location
-                        df_at_xy = group[1].copy()
-                        # organize dataframe
-                        x = df_at_xy["Xp"].values[0]
-                        y = df_at_xy["Yp"].values[0]
-                        df_at_xy.index = self.time
-                        df_at_xy.index.name = "time"
-                        df_at_xy.drop("Xp",axis=1,inplace=True)
-                        df_at_xy.drop("Yp",axis=1,inplace=True)
-                        # organize dataset
-                        ds_at_xy = df_at_xy.to_xarray()
-                        # set location
-                        ds_at_xy["Xp"] = x
-                        ds_at_xy["Yp"] = y
-                        # append
-                        dss.append(ds_at_xy)
-                    # concatenate
-                    ds = xr.concat(dss,dim='location')
-
-                else:
-                    raise ValueError("When reading a non-stationary table, please use \'HEAD\' option.")
-
-            # Update metatada
-            ds.attrs["version"] = self.version
-            ds.attrs["run"] = self.run
-            ds.attrs["table"] =  self.run
-
-            for var, units in zip(self.variables, self.units):
-                ds[var].attrs['units'] = units
-
-            return ds
-
-
-    def _currentline(self):
-        return self.lines[self.n]
-
-
-    def _currentlines(self):
-        return self.lines[self.n:]
+                self.units = [u for c, u in json.load(fp).items() if c in self.columns]
