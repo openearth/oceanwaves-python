@@ -49,7 +49,7 @@ def simplify(units):
         
 
     # only continue in case of string or unicode input
-    if type(units) not in six.string_types + (six.text_type,):
+    if type(units) not in six.string_types + (six.text_type, str):
         return units
     
     # remove spaces around operators (space itself is also a multiplication operator)
