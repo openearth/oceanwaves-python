@@ -1,4 +1,8 @@
+from __future__ import absolute_import
+
 import numpy as np
+
+from oceanwaves.utils import *
 
 
 def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
@@ -50,7 +54,7 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     E_js = E_pm * gamma**np.exp(-0.5 * (Tp * f - 1)**2. / sigma**2.);
     
     if normalize:
-        E_js *= Hm0**2. / (16. * np.trapz(E_js, f))
+        E_js *= Hm0**2. / (16. * trapz_and_repeat(E_js, f, axis=-1))
         
     return E_js
 
@@ -97,13 +101,15 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
     #p_theta = A1 * np.maximum(0., np.cos(theta - theta_peak))
     p_theta = np.maximum(0., np.cos(theta - theta_peak))**s
 
-    # normalize directional spreading
-    if normalize:
-        p_theta /= np.trapz(p_theta, theta - theta_peak)
-
     # convert to original units
     if units.lower().startswith('deg'):
-        p_theta = np.radians(p_theta)
+        theta = np.degrees(theta)
+        theta_peak = np.degrees(theta_peak)
+        p_theta = np.degrees(p_theta)
     
+    # normalize directional spreading
+    if normalize:
+        p_theta /= trapz_and_repeat(p_theta, theta - theta_peak, axis=-1)
+
     return p_theta
 

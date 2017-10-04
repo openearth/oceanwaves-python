@@ -575,7 +575,9 @@ class OceanWaves(xr.Dataset):
             dims.remove(k)
 
             # determine directional spreading
-            E /= expand_and_repeat(np.trapz(E, theta, axis=-1), len(theta), ix_direction)
+            E /= expand_and_repeat(np.trapz(E, theta, axis=ix_direction),
+                                   repeat=len(theta),
+                                   expand_dims=ix_direction)
             m1 = np.trapz(theta * E, theta)
             m2 = np.trapz(theta**2. * E, theta)
             var = m2 - m1**2.
@@ -620,7 +622,7 @@ class OceanWaves(xr.Dataset):
             k = self._key_lookup('_frequency')
             f = coords.pop(k).values
             ix_frequency = dims.index(k)
-            f_mtx = expand_and_repeat(f, E.values.shape, ix_frequency, inclusive=True)
+            f_mtx = expand_and_repeat(f, shape=E.values.shape, exist_dims=ix_frequency)
             dims.remove(k)
             
             if f_min == 0. and f_max == np.inf:
@@ -710,7 +712,7 @@ class OceanWaves(xr.Dataset):
         energy = self.variables[k].values
         energy_units = self.variables[k].attrs['units']
         ix_frequency = energy.ndim - int(self.has_dimension('direction'))
-
+        
         # convert to energy
         if self.units == 'm':
             energy = energy**2. / 16.
@@ -726,22 +728,31 @@ class OceanWaves(xr.Dataset):
         if isinstance(Tp, (int, float)):
             Tp = Tp * np.ones(energy.shape)
 
+        # expand energy matrices
+        energy = expand_and_repeat(energy, repeat=len(frequency),
+                                   expand_dims=ix_frequency)
+        f_mtx = expand_and_repeat(frequency,
+                                  shape=energy.shape,
+                                  exist_dims=ix_frequency)
+        Tp_mtx = expand_and_repeat(Tp, shape=energy.shape,
+                                   expand_dims=ix_frequency)
+
         # compute spectrum shape
         if shape.lower() == 'jonswap':
-            spectrum = jonswap(frequency, Hm0=1., Tp=4., gamma=gamma, # FIXME: Tp
+            spectrum = jonswap(f_mtx, Hm0=1., Tp=Tp_mtx, gamma=gamma,
                                sigma_low=sigma_low,
                                sigma_high=sigma_high, g=g,
-                               method=method, normalize=normalize)
+                               method=method, normalize=False)
 
             # normalize shape
-            spectrum /= np.trapz(spectrum, frequency)
+            if normalize:
+                spectrum /= trapz_and_repeat(spectrum, f_mtx,
+                                             axis=ix_frequency)
+
         else:
             raise ValueError('Unknown spectrum shape: %s', shape)
 
-        # distribute energy over frequencies
-        energy = expand_and_repeat(energy, len(frequency), ix_frequency)
-        spectrum = expand_and_repeat(spectrum, energy.shape,
-                                     ix_frequency, inclusive=True)
+        # apply shape
         energy = np.multiply(energy, spectrum)
 
         # determine units
@@ -802,16 +813,29 @@ class OceanWaves(xr.Dataset):
         if isinstance(s, (int, float)):
             s = s * np.ones(energy.shape)
 
-        # compute directional spreading
-        spreading = directional_spreading(direction,
-                                          units=direction_units,
-                                          theta_peak=0., s=20.,#theta_peak, s=s,
-                                          normalize=normalize)
-
         # expand energy matrix
-        energy = expand_and_repeat(energy, len(direction), ix_direction)
-        spreading = expand_and_repeat(spreading, energy.shape, ix_direction,
-                                      inclusive=True)
+        energy = expand_and_repeat(energy, repeat=len(direction),
+                                   expand_dims=ix_direction)
+        theta_mtx = expand_and_repeat(direction, shape=energy.shape,
+                                      exist_dims=ix_direction)
+        thetap_mtx = expand_and_repeat(theta_peak, shape=energy.shape,
+                                       expand_dims=ix_direction)
+        s_mtx = expand_and_repeat(s, shape=energy.shape,
+                                  expand_dims=ix_direction)
+
+        # compute directional spreading
+        spreading = directional_spreading(theta_mtx,
+                                          units=direction_units,
+                                          theta_peak=thetap_mtx,
+                                          s=s_mtx,
+                                          normalize=False)
+
+        # normalize shape
+        if normalize:
+            spreading /= trapz_and_repeat(spreading, theta_mtx,
+                                          axis=ix_direction)
+
+        # apply shape
         energy = np.multiply(energy, spreading)
 
         # determine units

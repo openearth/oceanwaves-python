@@ -500,7 +500,7 @@ class SwanSpcWriter:
                 if E[i,:,:].max() == 0:
                     f = 1.
                 else:
-                    f = E[i,:,:].max() / 99999.
+                    f = E[i,:,:].max() / 999999.
 
                 self.fp.write('FACTOR\n')
                 self.fp.write('%4e\n' % f)
@@ -591,8 +591,8 @@ class SwanTableReader:
     
     
     def to_oceanwaves(self, time_var='Time',
-                      location_vars=['Xp','Yp'],
-                      frequency_var='RTpeak', direction_var='Dir',
+                      location_vars=['Xp','Yp'], period_var='RTpeak',
+                      frequency_var=None, direction_var='Dir',
                       energy_var='Hsig', **kwargs):
         '''Converts raw data in OceanWaves object
 
@@ -643,6 +643,11 @@ class SwanTableReader:
         # concatenate per time/location dataframes and reset index
         df = pd.concat(dfs2, axis=0)
         df = df.reset_index(0, drop=True)
+
+        # convert period to frequency
+        if frequency_var is None:
+            frequency_var = 'Freq'
+            df[frequency_var] = 1./df[period_var]
         
         # convert dataframe to dataset and add units
         xa = df.to_xarray()

@@ -160,8 +160,7 @@ def parse(units):
                 
             n += exp
 
-        if n != 0:
-            parts.append((u, n))
+        parts.append((u, n))
 
     return parts
 
