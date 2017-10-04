@@ -21,18 +21,25 @@ CONVERSIONS = [('m^2 / m', 'm'),
                ('m^5 / (m * m)^2', 'm'), # test group exponents
                ('m^5 / (m * m)^2 + NAP', 'm + NAP'), # test terms
                ('(kg * m^2 * s^2)^2 / (kg^2 * m^3 * s^4)', 'm'), # test multiple units
-               ('(m^2 / Hz) * m^-2', 's')] # test herz to seconds conversion
+               ('(m^2 / Hz) * m^-2', 's'), # test herz to seconds conversion
+               ('(m^2 * degr) * m^-2', 'deg'), # test degr to deg conversion
+               ('m^2 * m^0.5', 'm^2.5'), # test partial exponents
+               ('m^0', ''), # test zero exponents
+               ('m^a * m^2', 'm^a*m^2'), # test variable exponents
+               (1, 1)] # test non-string input
 
 
 ### CHECK UNITS
 
 def test_units_tospectral():
+    '''Test unit conversion when converting to spectrum'''
     ow = _generate_nonspectral()
     ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
     assert_equals(ow_spc.energy.units, 'm^2 Hz^-1')
 
     
 def test_units_todirectional():
+    '''Test unit conversion when converting to directional spectrum'''
     ow = _generate_nonspectral()
     ow_spc = ow.as_spectral(frequency=dict(DIMS)['frequency'])
     ow_dir = ow_spc.as_directional(direction=dict(DIMS)['direction'])
@@ -42,6 +49,7 @@ def test_units_todirectional():
 # CHECK RAW CONVERSIONS
 
 def test_units_conversions():
+    '''Test theoretical unit conversions'''
     for u1, u2 in CONVERSIONS:
         yield check_units, u1, u2
 

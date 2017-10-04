@@ -21,9 +21,16 @@ DIMS = [('time',      [datetime(1970,1,1,0),
 ### CHECK PLOTTING
 
 def test_plot_polar():
+    '''Test plotting of facetted polar plot'''
     ow = OceanWaves(**dict(DIMS))
     ow['_energy'] = [d[0] for d in DIMS], np.random.rand(*ow.shape)
     ow.plot(col='time', row='location',
             subplot_kws=dict(projection='polar'), sharex=False, sharey=False)
 
 
+def test_plot_map():
+    '''Test plotting of mapped polar plot'''
+    ow = OceanWaves(**dict(DIMS))
+    ow['_energy'] = [d[0] for d in DIMS], np.random.rand(*ow.shape)
+    ow[dict(time=0)].plot.spatial_map(scale=.3,
+                                      subplot_kw=dict(projection='polar'))
