@@ -25,13 +25,6 @@ from oceanwaves.wavedroid import *
 logger = logging.getLogger(__name__)
 
 
-# initialize readers
-from_swan = SwanSpcReader()
-from_swantable = SwanTableReader()
-from_datawell = DatawellReader()
-from_wavedroid = WaveDroidReader()
-
-
 class OceanWaves(xr.Dataset):
     '''Class to store (spectral) data of ocean waves
 
@@ -68,51 +61,24 @@ class OceanWaves(xr.Dataset):
 
     '''
 
+    from_swan = SwanSpcReader()
+    from_swantable = SwanTableReader()
+    from_datawell = DatawellReader()
+    from_wavedroid = WaveDroidReader()
 
-    def __init__(self, *args, **kwargs):
-        '''Initialize class
 
-        Initializes class from another OceanWaves or xarray.Dataset
-        object or from scratch.
-
-        See Also
-        --------
-        oceanwaves.OceanWaves.initialize
-
-        '''
-
-        args = list(args)
-        if len(args) > 0:
-            obj = args[0]
-            if isinstance(obj, OceanWaves):
-                args.pop(0)
-                kwargs = obj._extract_initialization_args(**kwargs)
-            elif isinstance(obj, xr.Dataset):
-                args.pop(0)
-                obj_ow = OceanWaves(*args, **kwargs)
-                obj = obj_ow._expand_locations(obj)
-                obj_ow = obj_ow.merge(obj)
-                kwargs = obj_ow._extract_initialization_args(**kwargs)
-
-            self.initialize(*args, **kwargs)
-            self.merge(obj, inplace=True)
-        else:
-            self.initialize(*args, **kwargs)
-
-        
-    def initialize(self, time=None, location=None, frequency=None,
-                   direction=None, energy=None, spreading=None,
-                   time_units='s', location_units='m',
-                   frequency_units='Hz', direction_units='deg',
-                   energy_units='m^2/Hz', spreading_units='deg',
-                   time_var='time', location_var='location',
-                   frequency_var='frequency',
-                   direction_var='direction', energy_var='energy',
-                   spreading_var='spreading',
-                   frequency_convention='absolute',
-                   direction_convention='nautical',
-                   spreading_convention='cosine', spectral=True,
-                   directional=True, attrs={}, crs=None, **kwargs):
+    def __init__(self, time=None, location=None, frequency=None,
+                 direction=None, energy=None, spreading=None,
+                 time_units='s', location_units='m',
+                 frequency_units='Hz', direction_units='deg',
+                 energy_units='m^2/Hz', spreading_units='deg',
+                 time_var='time', location_var='location',
+                 frequency_var='frequency', direction_var='direction',
+                 energy_var='energy', spreading_var='spreading',
+                 frequency_convention='absolute',
+                 direction_convention='nautical',
+                 spreading_convention='cosine', spectral=True,
+                 directional=True, attrs={}, crs=None, **kwargs):
         '''Initialize class
 
         Sets dimensions, converts coordinates and fills the dataset,
@@ -192,96 +158,129 @@ class OceanWaves(xr.Dataset):
         # determine object dimensions
         if self._isvalid(time):
             dims.append(time_var)
-            coords[time_var]      = xr.Variable(time_var,
-                                                time,
-                                                attrs=dict(units=time_units))
+            coords[time_var] = xr.Variable(
+                time_var,
+                time,
+                attrs=dict(units=time_units)
+            )
 
         if self._isvalid(location):
             dims.append(location_var)
-            coords[location_var]  = xr.Variable(location_var,
-                                                np.arange(len(location)))
+            coords[location_var] = xr.Variable(
+                location_var,
+                np.arange(len(location))
+            )
             
             x, y = list(zip(*location))
-            coords['%s_x' % location_var]   = xr.Variable(location_var,
-                                                          np.asarray(x),
-                                                          attrs=dict(units=location_units))
-            coords['%s_y' % location_var]   = xr.Variable(location_var,
-                                                          np.asarray(y),
-                                                          attrs=dict(units=location_units))
+            coords['%s_x' % location_var] = xr.Variable(
+                location_var,
+                np.asarray(x),
+                attrs=dict(units=location_units)
+            )
+            coords['%s_y' % location_var] = xr.Variable(
+                location_var,
+                np.asarray(y),
+                attrs=dict(units=location_units)
+            )
                 
-            coords['%s_lat' % location_var] = xr.Variable(location_var,
-                                                          np.asarray(x) + np.nan,
-                                                          attrs=dict(units='degN'))
-            coords['%s_lon' % location_var] = xr.Variable(location_var,
-                                                          np.asarray(y) + np.nan,
-                                                          attrs=dict(units='degE'))
+            coords['%s_lat' % location_var] = xr.Variable(
+                location_var,
+                np.asarray(x) + np.nan,
+                attrs=dict(units='degN')
+            )
+            coords['%s_lon' % location_var] = xr.Variable(
+                location_var,
+                np.asarray(y) + np.nan,
+                attrs=dict(units='degE')
+            )
 
         if self._isvalid(frequency, mask=frequency>0) and spectral:
             dims.append(frequency_var)
-            coords[frequency_var] = xr.Variable(frequency_var,
-                                                frequency[frequency>0],
-                                                attrs=dict(units=frequency_units))
+            coords[frequency_var] = xr.Variable(
+                frequency_var,
+                frequency[frequency>0],
+                attrs=dict(units=frequency_units)
+            )
             
         if self._isvalid(direction) and directional:
             dims.append(direction_var)
-            coords[direction_var] = xr.Variable(direction_var,
-                                                direction,
-                                                attrs=dict(units=direction_units))
+            coords[direction_var] = xr.Variable(
+                direction_var,
+                direction,
+                attrs=dict(units=direction_units)
+            )
 
         # determine object shape
         shp = tuple([len(c) for k, c in coords.items() if k in dims])
 
         # initialize energy variable
-        data_vars[energy_var] = xr.DataArray(np.nan + np.zeros(shp),
-                                             dims=dims,
-                                             coords=coords,
-                                             attrs=dict(units=energy_units))
+        data_vars[energy_var] = xr.DataArray(
+            np.nan + np.zeros(shp),
+            dims=dims,
+            coords=coords,
+            attrs=dict(units=energy_units)
+        )
 
         # store parameterized frequencies
         if not spectral:
             if self._isvalid(frequency):
-                data_vars[frequency_var] = xr.DataArray(frequency,
-                                                        dims=dims,
-                                                        coords=coords,
-                                                        attrs=dict(units=direction_units))
+                data_vars[frequency_var] = xr.DataArray(
+                    frequency,
+                    dims=dims,
+                    coords=coords,
+                    attrs=dict(units=direction_units)
+                )
         
         # store parameterized directions
         if not directional:
             if self._isvalid(direction):
-                data_vars[direction_var] = xr.DataArray(direction,
-                                                        dims=dims,
-                                                        coords=coords,
-                                                        attrs=dict(units=direction_units))
+                data_vars[direction_var] = xr.DataArray(
+                    direction,
+                    dims=dims,
+                    coords=coords,
+                    attrs=dict(units=direction_units)
+                )
             if self._isvalid(spreading):
-                data_vars[spreading_var] = xr.DataArray(spreading,
-                                                        dims=dims,
-                                                        coords=coords,
-                                                        attrs=dict(units=spreading_units))
+                data_vars[spreading_var] = xr.DataArray(
+                    spreading,
+                    dims=dims,
+                    coords=coords,
+                    attrs=dict(units=spreading_units)
+                )
         
         # collect global attributes
         attrs.update(dict(
             _init=kwargs.copy(),
             _crs=crs,
-            _names=dict(time = time_var,
-                        location = location_var,
-                        frequency = frequency_var,
-                        direction = direction_var,
-                        spreading = spreading_var,
-                        energy = energy_var),
-            _units=dict(time = time_units,
-                        location = location_units,
-                        frequency = frequency_units,
-                        direction = direction_units,
-                        energy = energy_units),
-            _conventions=dict(frequency = frequency_convention,
-                              direction = direction_convention,
-                              spreading = spreading_convention)))
+            _names=dict(
+                time = time_var,
+                location = location_var,
+                frequency = frequency_var,
+                direction = direction_var,
+                spreading = spreading_var,
+                energy = energy_var
+            ),
+            _units=dict(
+                time = time_units,
+                location = location_units,
+                frequency = frequency_units,
+                direction = direction_units,
+                energy = energy_units
+            ),
+            _conventions=dict(
+                frequency = frequency_convention,
+                direction = direction_convention,
+                spreading = spreading_convention
+            )
+        ))
         
         # initialize empty object
-        super(OceanWaves, self).__init__(data_vars=data_vars,
-                                         coords=coords,
-                                         attrs=attrs,
-                                         **kwargs)
+        super(OceanWaves, self).__init__(
+            data_vars=data_vars,
+            coords=coords,
+            attrs=attrs,
+            **kwargs
+        )
 
         # set wave energy
         if self._isvalid(energy):
@@ -291,6 +290,31 @@ class OceanWaves(xr.Dataset):
         self.convert_coordinates(crs)
         
 
+    @classmethod
+    def from_dataset(cls, dataset, *args, **kwargs):
+        '''Initialize class from xarray.Dataset or OceanWaves object
+
+        Parameters
+        ----------
+        dataset : xarray.Dataset or Oceanwaves
+          Base object
+
+        '''
+
+        if isinstance(dataset, OceanWaves):
+            kwargs = dataset._extract_initialization_args(**kwargs)
+        elif isinstance(dataset, xr.Dataset):
+            obj = OceanWaves(*args, **kwargs)
+            dataset = obj._expand_locations(dataset)
+            obj = obj.merge(dataset)
+            kwargs = obj._extract_initialization_args(**kwargs)
+
+        obj = cls(*args, **kwargs)
+        obj.merge(dataset, inplace=True)
+
+        return obj
+
+        
     def reinitialize(self, **kwargs):
         '''Reinitializes current object with modified parameters
 
@@ -352,9 +376,11 @@ class OceanWaves(xr.Dataset):
         '''
 
         settings = dict(crs = self.attrs['_crs'],
-                        attrs = dict([(k, v)
-                                      for k, v in self.attrs.items()
-                                      if not k.startswith('_')]))
+                        attrs = dict([
+                            (k, v)
+                            for k, v in self.attrs.items()
+                            if not k.startswith('_')
+                        ]))
 
         # add dimensions
         for dim in ['direction', 'frequency', 'time']:
@@ -575,9 +601,11 @@ class OceanWaves(xr.Dataset):
             dims.remove(k)
 
             # determine directional spreading
-            E /= expand_and_repeat(np.trapz(E, theta, axis=ix_direction),
-                                   repeat=len(theta),
-                                   expand_dims=ix_direction)
+            E /= expand_and_repeat(
+                np.trapz(E, theta, axis=ix_direction),
+                repeat=len(theta),
+                expand_dims=ix_direction
+            )
             m1 = np.trapz(theta * E, theta)
             m2 = np.trapz(theta**2. * E, theta)
             var = m2 - m1**2.
@@ -622,7 +650,11 @@ class OceanWaves(xr.Dataset):
             k = self._key_lookup('_frequency')
             f = coords.pop(k).values
             ix_frequency = dims.index(k)
-            f_mtx = expand_and_repeat(f, shape=E.values.shape, exist_dims=ix_frequency)
+            f_mtx = expand_and_repeat(
+                f,
+                shape=E.values.shape,
+                exist_dims=ix_frequency
+            )
             dims.remove(k)
             
             if f_min == 0. and f_max == np.inf:
@@ -668,9 +700,11 @@ class OceanWaves(xr.Dataset):
                 m_min = scipy.interpolate.interpn(points, m, xi_min)
                 m_max = scipy.interpolate.interpn(points, m, xi_max)
                 
-                m = (m_max - m_min).reshape([len(x)
-                                             for i, x in enumerate(vals)
-                                             if i is not ix_freqency])
+                m = (m_max - m_min).reshape([
+                    len(x)
+                    for i, x in enumerate(vals)
+                    if i is not ix_freqency
+                ])
 
             # determine units
             k = self._key_lookup('_energy')
@@ -729,13 +763,21 @@ class OceanWaves(xr.Dataset):
             Tp = Tp * np.ones(energy.shape)
 
         # expand energy matrices
-        energy = expand_and_repeat(energy, repeat=len(frequency),
-                                   expand_dims=ix_frequency)
-        f_mtx = expand_and_repeat(frequency,
-                                  shape=energy.shape,
-                                  exist_dims=ix_frequency)
-        Tp_mtx = expand_and_repeat(Tp, shape=energy.shape,
-                                   expand_dims=ix_frequency)
+        energy = expand_and_repeat(
+            energy,
+            repeat=len(frequency),
+            expand_dims=ix_frequency
+        )
+        f_mtx = expand_and_repeat(
+            frequency,
+            shape=energy.shape,
+            exist_dims=ix_frequency
+        )
+        Tp_mtx = expand_and_repeat(
+            Tp,
+            shape=energy.shape,
+            expand_dims=ix_frequency
+        )
 
         # compute spectrum shape
         if shape.lower() == 'jonswap':
@@ -760,10 +802,12 @@ class OceanWaves(xr.Dataset):
                                frequency_units)
 
         # reinitialize object with new dimensions
-        return self.reinitialize(frequency=frequency,
-                                 frequency_units=frequency_units,
-                                 energy=energy,
-                                 energy_units=simplify(units))
+        return self.reinitialize(
+            frequency=frequency,
+            frequency_units=frequency_units,
+            energy=energy,
+            energy_units=simplify(units)
+        )
 
 
     def as_directional(self, direction, direction_units='deg',
@@ -814,21 +858,35 @@ class OceanWaves(xr.Dataset):
             s = s * np.ones(energy.shape)
 
         # expand energy matrix
-        energy = expand_and_repeat(energy, repeat=len(direction),
-                                   expand_dims=ix_direction)
-        theta_mtx = expand_and_repeat(direction, shape=energy.shape,
-                                      exist_dims=ix_direction)
-        thetap_mtx = expand_and_repeat(theta_peak, shape=energy.shape,
-                                       expand_dims=ix_direction)
-        s_mtx = expand_and_repeat(s, shape=energy.shape,
-                                  expand_dims=ix_direction)
+        energy = expand_and_repeat(
+            energy,
+            repeat=len(direction),
+            expand_dims=ix_direction
+        )
+        theta_mtx = expand_and_repeat(
+            direction,
+            shape=energy.shape,
+            exist_dims=ix_direction
+        )
+        thetap_mtx = expand_and_repeat(
+            theta_peak,
+            shape=energy.shape,
+            expand_dims=ix_direction
+        )
+        s_mtx = expand_and_repeat(
+            s,
+            shape=energy.shape,
+            expand_dims=ix_direction
+        )
 
         # compute directional spreading
-        spreading = directional_spreading(theta_mtx,
-                                          units=direction_units,
-                                          theta_peak=thetap_mtx,
-                                          s=s_mtx,
-                                          normalize=False)
+        spreading = directional_spreading(
+            theta_mtx,
+            units=direction_units,
+            theta_peak=thetap_mtx,
+            s=s_mtx,
+            normalize=False
+        )
 
         # normalize shape
         if normalize:
@@ -842,10 +900,12 @@ class OceanWaves(xr.Dataset):
         units = '(%s)/(%s)' % (energy_units, direction_units)
 
         # reinitialize object with new dimensions
-        return self.reinitialize(direction=direction,
-                                 direction_units=direction_units,
-                                 energy=energy,
-                                 energy_units=simplify(units))
+        return self.reinitialize(
+            direction=direction,
+            direction_units=direction_units,
+            energy=energy,
+            energy_units=simplify(units)
+        )
 
 
     def as_omnidirectional(self):
@@ -874,11 +934,13 @@ class OceanWaves(xr.Dataset):
                                self.variables[k2].attrs['units'])
 
         # reinitialize object with new dimensions
-        return self.reinitialize(direction=self.peak_direction(),
-                                 spreading=self.directional_spreading(),
-                                 energy=energy,
-                                 energy_units=simplify(units),
-                                 directional=False)
+        return self.reinitialize(
+            direction=self.peak_direction(),
+            spreading=self.directional_spreading(),
+            energy=energy,
+            energy_units=simplify(units),
+            directional=False
+        )
 
 
     def as_radians(self):
@@ -888,8 +950,10 @@ class OceanWaves(xr.Dataset):
             k = self._key_lookup('_direction')
             d = self.coords[k]
             if d.attrs['units'].lower().startswith('deg'):
-                return self.reinitialize(direction=np.radians(d.values),
-                                         direction_units='rad')
+                return self.reinitialize(
+                    direction=np.radians(d.values),
+                    direction_units='rad'
+                )
 
         return self
     
@@ -901,34 +965,12 @@ class OceanWaves(xr.Dataset):
             k = self._key_lookup('_direction')
             d = self.coords[k]
             if d.attrs['units'].lower().startswith('rad'):
-                return self.reinitialize(direction=np.degrees(d.values),
-                                         direction_units='deg')
+                return self.reinitialize(
+                    direction=np.degrees(d.values),
+                    direction_units='deg'
+                )
 
         return self
-
-
-    @property
-    def from_swan(self):
-
-        return SwanSpcReader()
-
-    
-    @property
-    def from_swantable(self):
-
-        return SwanTableReader()
-
-
-    @property
-    def from_datawell(self):
-
-        return DatawellReader()
-
-
-    @property
-    def from_wavedroid(self):
-
-        return WaveDroidReader()
 
 
     @property
@@ -940,7 +982,11 @@ class OceanWaves(xr.Dataset):
     def to_netcdf(self, *args, **kwargs):
 
         obj = self.copy()
-        obj.attrs = {k:v for k, v in obj.attrs.items() if not k.startswith('_')}
+        obj.attrs = {
+            k:v
+            for k, v in obj.attrs.items()
+            if not k.startswith('_')
+        }
                 
         return super(OceanWaves, obj).to_netcdf(*args, **kwargs)
 
@@ -953,11 +999,15 @@ class OceanWaves(xr.Dataset):
 
         if self.has_dimension('location'):
             k2 = self._key_lookup('_location')
-            return OceanWavesPlotMethods(obj.data_vars[k1],
-                                         obj.variables['%s_x' % k2].values,
-                                         obj.variables['%s_y' % k2].values)
+            return OceanWavesPlotMethods(
+                obj.data_vars[k1],
+                obj.variables['%s_x' % k2].values,
+                obj.variables['%s_y' % k2].values
+            )
         else:
-            return OceanWavesPlotMethods(obj.data_vars[k1])
+            return OceanWavesPlotMethods(
+                obj.data_vars[k1]
+            )
 
         
     @property

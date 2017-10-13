@@ -123,34 +123,44 @@ class SwanSpcReader:
         else:
             energy_units = None
             
-        kwargs = dict(location=self.locations,
-                      location_units='m' if self.crs is None else 'deg',
-                      frequency=self.frequencies,
-                      frequency_units='Hz',
-                      frequency_convention=self.frequency_convention,
-                      energy_units=energy_units,
-                      attrs=dict(comments=self.comments),
-                      crs=self.crs)
+        kwargs = dict(
+            location=self.locations,
+            location_units='m' if self.crs is None else 'deg',
+            frequency=self.frequencies,
+            frequency_units='Hz',
+            frequency_convention=self.frequency_convention,
+            energy_units=energy_units,
+            attrs=dict(comments=self.comments),
+            crs=self.crs
+        )
 
         if self.directional:
-            kwargs.update(dict(direction=self.directions,
-                               direction_units='deg',
-                               direction_convention=self.direction_convention,
-                               energy=self.quantities))
+            kwargs.update(dict(
+                direction=self.directions,
+                direction_units='deg',
+                direction_convention=self.direction_convention,
+                energy=self.quantities
+            ))
             if not self.stationary:
-                kwargs.update(dict(time=self.time,
-                                   time_units='s'))
+                kwargs.update(dict(
+                    time=self.time,
+                    time_units='s'
+                ))
         else:
             if not self.stationary:
-                kwargs.update(dict(time=self.time,
-                                   time_units='s',
-                                   energy=[[q2[:,0] for q2 in q1] for q1 in self.quantities],
-                                   direction=[[q2[:,1] for q2 in q1] for q1 in self.quantities],
-                                   spreading=[[q2[:,2] for q2 in q1] for q1 in self.quantities]))
+                kwargs.update(dict(
+                    time=self.time,
+                    time_units='s',
+                    energy=[[q2[:,0] for q2 in q1] for q1 in self.quantities],
+                    direction=[[q2[:,1] for q2 in q1] for q1 in self.quantities],
+                    spreading=[[q2[:,2] for q2 in q1] for q1 in self.quantities]
+                ))
             else:
-                kwargs.update(dict(energy=[q[:,0] for q in self.quantities],
-                                   direction=[q[:,1] for q in self.quantities],
-                                   spreading=[q[:,2] for q in self.quantities]))
+                kwargs.update(dict(
+                    energy=[q[:,0] for q in self.quantities],
+                    direction=[q[:,1] for q in self.quantities],
+                    spreading=[q[:,2] for q in self.quantities]
+                ))
         kwargs.update(dict(directional=self.directional))
 
         return oceanwaves.oceanwaves.OceanWaves(**kwargs)
@@ -472,7 +482,8 @@ class SwanSpcWriter:
     def write_timestamp(self):
 
         if self.obj.has_dimension('time'):
-            self.fp.write('%s\n' % self.obj['_time'].values[0].strftime(SWAN_TIME_FORMAT))
+            time = self.obj['_time'].values[0].strftime(SWAN_TIME_FORMAT)
+            self.fp.write('%s\n' % time)
 
 
     def write_data(self):
@@ -585,9 +596,11 @@ class SwanTableReader:
         self.parse_headers()
         self.check_integrity()
         
-        return self.to_oceanwaves(energy_var=energy_var,
-                                  time_var=time_var,
-                                  **kwargs)
+        return self.to_oceanwaves(
+            energy_var=energy_var,
+            time_var=time_var,
+            **kwargs
+        )
     
     
     def to_oceanwaves(self, time_var='Time',
@@ -668,14 +681,16 @@ class SwanTableReader:
                 xa.variables[k].attrs['units'] = '1'
                
         # convert dataset to oceanwaves object
-        return oceanwaves.OceanWaves(xa,
-                                     time_var=time_var,
-                                     location_var='Location',
-                                     frequency_var=frequency_var,
-                                     direction_var=direction_var,
-                                     energy_var=energy_var,
-                                     **kwargs)    
-    
+        return oceanwaves.OceanWaves.from_dataset(
+            xa,
+            time_var=time_var,
+            location_var='Location',
+            frequency_var=frequency_var,
+            direction_var=direction_var,
+            energy_var=energy_var,
+            **kwargs
+        )    
+
     
     def read(self, fpath):
         '''Read headers and data seperately'''
