@@ -524,6 +524,8 @@ class SwanSpcWriter:
 
             if E.ndim == 1:
                 E = E[np.newaxis,:]
+                D = D[np.newaxis,:]
+                S = S[np.newaxis,:]
 
             n = E.shape[1]
             for i in range(E.shape[0]):
