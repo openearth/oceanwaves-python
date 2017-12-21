@@ -1,6 +1,15 @@
-# oceanwaves-python
-
 [![CircleCI](https://circleci.com/gh/openearth/oceanwaves-python.svg?style=svg)](https://circleci.com/gh/openearth/oceanwaves-python)
+[![Codecov](https://codecov.io/gh/openearth/oceanwaves-python/branch/master/graph/badge.svg)](https://codecov.io/gh/openearth/oceanwaves-python)
+[![ReadTheDocs](http://readthedocs.org/projects/oceanwaves/badge/?version=latest)](http://oceanwaves.readthedocs.io/en/latest/)
+
+[![PyPI](https://img.shields.io/pypi/v/oceanwaves.svg)](https://pypi.python.org/pypi/oceanwaves)
+[![PyPI_versions](https://img.shields.io/pypi/pyversions/oceanwaves.svg)](https://pypi.python.org/pypi/oceanwaves)
+[![PyPI_status](https://img.shields.io/pypi/status/oceanwaves.svg)](https://pypi.python.org/pypi/oceanwaves)
+[![PyPI_format](https://img.shields.io/pypi/format/oceanwaves.svg)](https://pypi.python.org/pypi/oceanwaves)
+
+[![License](https://img.shields.io/pypi/l/oceanwaves.svg)](https://pypi.python.org/pypi/oceanwaves)
+
+# oceanwaves-python
 
 This toolbox provides a generic data storage object for ocean waves
 data (OceanWaves). OceanWaves is built upon the
