@@ -31,6 +31,7 @@ Contents:
    :maxdepth: 2
 
    sourcecode
+   whatsnew
 
 
 Indices and tables
