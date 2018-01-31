@@ -118,10 +118,11 @@ class SwanSpcReader:
 
     def to_oceanwaves(self):
 
-        if 'VaDens' in self.specs.keys():
-            energy_units = self.specs['VaDens']['units']
-        else:
-            energy_units = None
+        energy_units = '1'
+        for var, specs in self.specs.items():
+            if 'units' in specs.keys():
+                energy_units = specs['units']
+                break
             
         kwargs = dict(
             location=self.locations,
