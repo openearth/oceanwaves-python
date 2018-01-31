@@ -44,7 +44,7 @@ def test_swan_6():
 def test_swan_7():
     '''Test writing of one-dimensional swan spectrum'''
     fname1 = 'data/swan/P1.SP1'
-    fname2 = 'data/swan/P1_copy.SP1'
+    fname2 = 'data/swan/P1.SP1.copy'
     ow_sp1_1 = ow.OceanWaves.from_swan(fname1)
     ow_sp1_1.to_swan(fname2)
     ow_sp1_2 = ow.OceanWaves.from_swan(fname2)
@@ -55,7 +55,7 @@ def test_swan_7():
 def test_swan_8():
     '''Test writing of two-dimensional swan spectrum'''
     fname1 = 'data/swan/P1.SP2'
-    fname2 = 'data/swan/P1_copy.SP2'
+    fname2 = 'data/swan/P1.SP2.copy'
     ow_sp2_1 = ow.OceanWaves.from_swan(fname1)
     ow_sp2_1.to_swan(fname2)
     ow_sp2_2 = ow.OceanWaves.from_swan(fname2)

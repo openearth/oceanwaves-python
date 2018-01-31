@@ -131,7 +131,7 @@ class SwanSpcReader:
             frequency_units='Hz',
             frequency_convention=self.frequency_convention,
             energy_units=energy_units,
-            attrs=dict(comments=self.comments),
+            attrs=dict(comments='\n'.join(self.comments)),
             crs=self.crs
         )
 

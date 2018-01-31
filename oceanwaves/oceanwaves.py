@@ -160,9 +160,16 @@ class OceanWaves(xr.Dataset):
             dims.append(time_var)
             coords[time_var] = xr.Variable(
                 time_var,
-                time,
-                attrs=dict(units=time_units)
+                time
             )
+
+            # only set time units if given. otherwise a datetime
+            # object is assumed that is encoded by xarray. setting
+            # units manually in that case would raise an exception if
+            # the dataset is written to CF-compatible netCDF.
+            if time_units is None or time_units != '':
+                coords[time_var].attrs.update(dict(units=time_units))
+
 
         if self._isvalid(location):
             dims.append(location_var)
