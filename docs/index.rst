@@ -27,6 +27,9 @@ The source code of the oceanwaves package can be found at
 Usage examples can be found in this notebook
 `<https://github.com/openearth/oceanwaves-python/blob/master/notebooks/oceanwaves.ipynb>`_.
 
+Features
+--------
+
 The OceanWaves object supports various standard conversions, like:
 
 * From significant wave height to spectral
@@ -63,7 +66,8 @@ The OceanWaves object can be written to:
   <http://xarray.pydata.org/en/stable/generated/xarray.Dataset.html>`_
   (e.g. netcdf)
 
-Contents:
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
