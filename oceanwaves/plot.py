@@ -4,8 +4,6 @@ from xarray.plot.plot import _PlotMethods
 
 
 try:
-    import matplotlib
-    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib.projections import PolarAxes
     HAS_MATPLOTLIB = True
