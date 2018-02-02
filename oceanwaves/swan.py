@@ -4,13 +4,18 @@ import os
 import re
 import glob
 import json
-import pyproj
 import logging
 import xarray as xr
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from collections import OrderedDict
+
+try:
+    import pyproj
+    HAS_PYPROJ = True
+except ImportError:
+    HAS_PYPROJ = False
 
 import oceanwaves.oceanwaves
 
@@ -412,7 +417,11 @@ class SwanSpcWriter:
 
             crs = self._get_attr('_crs')
             if crs is not None:
-                latlon = pyproj.Proj(init=crs).is_latlong()
+                if not HAS_PYPROJ:
+                    logger.warn('Package "pyproj" is not installed, cannot '
+                                'apply coordinate reference system.')
+                else:
+                    latlon = pyproj.Proj(init=crs).is_latlong()
 
             if latlon:
                 self.fp.write('LONLAT\n')

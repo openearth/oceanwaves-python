@@ -37,7 +37,6 @@ setup(
     python_requires='>=2.7, <4',
     install_requires=[
         'docopt',
-        'pyproj',
         'xarray',
         'scipy',
         'numpy',

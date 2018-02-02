@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import copy
-import pyproj
 import logging
 import numpy as np
 import xarray as xr
@@ -9,8 +8,11 @@ import scipy.integrate
 import scipy.interpolate
 from collections import OrderedDict
 
-from xarray.core.coordinates import DatasetCoordinates
-from xarray.core.dataset import DataVariables
+try:
+    import pyproj
+    HAS_PYPROJ = True
+except ImportError:
+    HAS_PYPROJ = False
 
 from oceanwaves.utils import *
 from oceanwaves.units import simplify
@@ -1088,15 +1090,19 @@ class OceanWaves(xr.Dataset):
         if self.has_dimension('location'):
             
             if crs is not None:
-                k = self._key_lookup('_location')
-                p1 = pyproj.Proj(init=crs)
-                p2 = pyproj.Proj(proj='latlong', datum='WGS84')
-                x = self._variables['%s_x' % k].values
-                y = self._variables['%s_y' % k].values
-                lat, lon = pyproj.transform(p1, p2, x, y)
-                self.variables['%s_lat' % k].values = lat
-                self.variables['%s_lon' % k].values = lon
-                self.attrs['_crs'] = crs
+                if not HAS_PYPROJ:
+                    logger.warn('Package "pyproj" is not installed, cannot '
+                                'apply coordinate reference system.')
+                else:
+                    k = self._key_lookup('_location')
+                    p1 = pyproj.Proj(init=crs)
+                    p2 = pyproj.Proj(proj='latlong', datum='WGS84')
+                    x = self._variables['%s_x' % k].values
+                    y = self._variables['%s_y' % k].values
+                    lat, lon = pyproj.transform(p1, p2, x, y)
+                    self.variables['%s_lat' % k].values = lat
+                    self.variables['%s_lon' % k].values = lon
+                    self.attrs['_crs'] = crs
 
 
     def __getitem__(self, key):

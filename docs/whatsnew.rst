@@ -15,6 +15,10 @@ Improvements
 * Also read units from quantities other than VarDens (e.g. EnDens and
   AcDens)
 
+* Package `pyproj` is not an optional dependency. Coordinate
+  conversion is disabled if `pyproj` is not installed. Instead a
+  warning is given in that situation.
+
 New functions/methods
 ^^^^^^^^^^^^^^^^^^^^^
 
