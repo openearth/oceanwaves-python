@@ -21,6 +21,7 @@ The OceanWaves object supports various standard conversions, like:
 * From spectral to peak wave period
 * From directional to peak wave direction
 * From degrees to radians
+* Automated unit conversion
 
 The OceanWaves object supports various standard plotting methods, like:
 
