@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='oceanwaves',
-    version='1.0.0rc2',
+    version='1.0.0rc3',
     author='Bas Hoonhout',
     author_email='bas.hoonhout@deltares.nl',
     url='http://oceanwaves.readthedocs.io/',
