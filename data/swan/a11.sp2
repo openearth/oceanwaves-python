@@ -1,0 +1,29 @@
+SWAN   1                                Swan standard spectral file, version
+$   Data produced by SWAN version 40.72ABCDE          
+$   Project: A11ref01        ;  run number: A11 
+LOCATIONS                               locations in x-y-space
+     1                                  number of locations
+        0.0000     1000.0000
+AFREQ                                   absolute frequencies in Hz
+     3                                  number of frequencies
+    0.1200
+    0.1470
+    0.1800
+CDIR                                    spectral Cartesian directions in degr
+     6                                  number of directions
+   95.0000
+  117.0000
+  139.0000
+  161.0000
+  183.0000
+  205.0000
+QUANT
+     1                                  number of quantities in table
+VaDens                                  variance densities in m2/Hz/degr
+m2/Hz/degr                              unit
+   -0.9900E+02                          exception value
+FACTOR
+    0.83771518E-10
+         0         0         0         0         0         0
+   -518239 -99009904 199975808 874384384 361910368  -6269530
+         0         0         0         0         0         0

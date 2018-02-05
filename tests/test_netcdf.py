@@ -6,6 +6,7 @@ SPECTRA = [
     'data/swan/P1.SP1',
     'data/swan/P1.SP2',
     'data/swan/P1b.SP1',
+    'data/swan/a11.sp2',
     'data/swan/a11.hot',
     'data/swan/a111uref01.sp2'
 ]

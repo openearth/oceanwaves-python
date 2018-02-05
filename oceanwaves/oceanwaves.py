@@ -293,7 +293,7 @@ class OceanWaves(xr.Dataset):
 
         # set wave energy
         if self._isvalid(energy):
-            self['_energy'] = dims, energy.squeeze()
+            self['_energy'] = dims, energy.reshape(shp)
 
         # convert coordinates
         self.convert_coordinates(crs)

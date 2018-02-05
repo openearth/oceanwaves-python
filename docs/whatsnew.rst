@@ -37,13 +37,17 @@ Bug fixes
   manually would raise an exception if the dataset is written to
   netCDF.
 
+* Do not squeeze energy matrix as that may cause conflicts with
+  dimensions of length unity. Instead, reshape the energy matrix to
+  the approriate size.
+
 Tests
 ^^^^^
 
 * Added tests for converting SWAN files to netCDF.
 
-* Added to extra example input files: a *.hot hotstart file and a
-  *.sp2 file without data.
+* Added to extra example input files: a *.hot hotstart file, a *.sp2
+  file without data and a *.sp2 file with a single location.
 
 v1.0.0 (15 November 2017)
 -------------------------
