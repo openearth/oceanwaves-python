@@ -1,7 +1,3 @@
-# set matplotlib backend
-import matplotlib
-matplotlib.use('Agg')
-
 from nose.tools import *
 import numpy as np
 from datetime import datetime
