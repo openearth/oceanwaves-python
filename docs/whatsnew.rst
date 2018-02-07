@@ -19,6 +19,9 @@ Improvements
   conversion is disabled if `pyproj` is not installed. Instead a
   warning is given in that situation.
 
+* Raise NotImplemented exception if SWAN test file with ITER keyword
+  is read.
+
 New functions/methods
 ^^^^^^^^^^^^^^^^^^^^^
 

@@ -314,6 +314,8 @@ class SwanSpcReader:
                 self.parse_comments()
             elif line.startswith('SWAN'):
                 self.parse_version()
+            elif line.startswith('ITER'):
+                self.parse_iter()
             elif line.startswith('TIME'):
                 self.parse_time()
             elif line.startswith('LOCATIONS'):
@@ -417,6 +419,14 @@ class SwanSpcReader:
             self.version = version
 
 
+    def parse_iter(self):
+        raise NotImplementedError(
+            'Reading of SWAN test files containing the ITER keyword are not yet '
+            'supported. Please contribute to the oceanwaves toolbox by providing an '
+            'exhaustive data format description or working implementation.'
+        )
+
+    
     def parse_time(self):
         m = re.match('\s*([^\s]+)', self.lines[1])
         if m:
