@@ -7,18 +7,21 @@ def test_swan_1():
     '''Test reading of one-dimensional swan spectrum'''
     ow_sp1 = ow.OceanWaves.from_swan('data/swan/P1.SP1')
     assert_equal(ow_sp1.shape, (4,47))
+    assert_almost_equal(np.nansum(ow_sp1.energy.values), 22.8, 1)
 
 
 def test_swan_2():
     '''Test reading of two-dimensional swan spectrum'''
     ow_sp2 = ow.OceanWaves.from_swan('data/swan/P1.SP2')
     assert_equal(ow_sp2.shape, (4,47,42))
+    assert_almost_equal(np.nansum(ow_sp2.energy.values), 2.7, 1)
 
 
 def test_swan_3():
     '''Test reading of swan table'''
     ow_tab = ow.OceanWaves.from_swantable('data/swan/P1.TAB')
     assert_equal(ow_tab.shape, (35,))
+    assert_almost_equal(np.nansum(ow_tab.Hsig.values), 53.9, 1)
 
     
 def test_swan_4():
@@ -27,18 +30,21 @@ def test_swan_4():
                                columns=['Xp','Yp','Botlev','Hsig',
                                         'RTpeak','TPsmoo','Tm01','Tm02'])
     assert_equal(ow_tab.shape, (8,))
+    assert_almost_equal(np.nansum(ow_tab.Hsig.values), 15.0, 1)
 
 
 def test_swan_5():
     '''Test reading of swan table'''
     ow_tab = ow.OceanWaves.from_swantable('data/swan/TBL2.tbl')
     assert_equal(ow_tab.shape, (8,))
+    assert_almost_equal(np.nansum(ow_tab.Hsig.values), 15.0, 1)
 
 
 def test_swan_6():
     '''Test reading of instationary swan table'''
     ow_tab = ow.OceanWaves.from_swantable('data/swan/TBL2NS.tbl')
     assert_equal(ow_tab.shape, (7,8))
+    assert_almost_equal(np.nansum(ow_tab.Hsig.values), 70.6, 1)
 
 
 def test_swan_7():

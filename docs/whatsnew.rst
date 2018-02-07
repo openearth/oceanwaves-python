@@ -55,6 +55,9 @@ Tests
 * Added to extra example input files: a *.hot hotstart file, a *.sp2
   file without data and a *.sp2 file with a single location.
 
+* Test SWAN I/O not only for reading the proper shapes, but also the
+  proper values.
+
 v1.0.0 (15 November 2017)
 -------------------------
 
