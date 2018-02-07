@@ -22,7 +22,13 @@ Improvements
 New functions/methods
 ^^^^^^^^^^^^^^^^^^^^^
 
-None.
+* Added `SwanBlockReader` for memory efficient reading of large
+  files. The `SwanSpcReader` now uses this class to read spectrum
+  files with a minimum required number of lines in memory at each
+  point in the reading procedure.
+
+* Added support for the `ZERO` keyword in SWAN spectrum files. `ZERO`
+  now results in zeros, while `NODATA` results in NaN values.
 
 Bug fixes
 ^^^^^^^^^

@@ -24,6 +24,234 @@ TABLE_UNITS_FILE = 'table_units.json'
 SWAN_TIME_FORMAT = '%Y%m%d.%H%M%S'
 
 
+class SwanBlockReader:
+    '''Class for memory efficient reading of large files.
+    
+    The class mimics the open().readlines() functionality as it
+    implements a __getitem__ method. But lines are only read once they
+    are requested. In addition, the class implements a line
+    pointer. Lines prior to the current pointer position are
+    immediately discarded. Therefore, only the currently required
+    lines remain in memory.
+
+    Note that indexing is always done with respect to the current
+    pointer position.
+
+    The class also implements convenience methods to read SWAN file
+    blocks.
+
+    Examples
+    --------
+    >>> lines = SwanBlockReader.open('a11.sp2')
+    >>> lines[0] # first line of file
+    >>> lines[:10] # first ten lines from file
+
+    >>> lines.advance() # advance file pointer one line (i.e. discard current line)
+    >>> lines[0] # read second line of file (after pointer was advanced)
+
+    >>> lines.advance(10) # advance file pointer ten lines
+    >>> lines[0] # read tenth line of file (after pointer was advanced)
+
+    >>> lines.readblock() # read data block starting at lines[1] (current position at key)
+
+    '''
+
+
+    def __init__(self, filename):
+        '''Initialize class
+
+        Parameters
+        ----------
+        filename : str
+          Path to filename
+
+        '''
+        
+        self.filename = filename
+        self.fp = open(filename, 'r') # file pointer
+        self.n = 0 # line pointer
+        self.eof = False # end of file
+        self.lines = [] # line buffer
+
+
+    def __enter__(self):
+        '''Convenience function for usage with `with`'''
+        pass
+
+
+    def __exit__(self):
+        '''Convenience function for usage with `with`'''
+        self.close()
+
+        
+    def __getitem__(self, s):
+        '''Implementation of line array mimicing
+
+        Two types of indexing are supported: slice of integer. For
+        each type the maximum extent of the reuqest (number of
+        required lines from current pointer position) is
+        determined. The line buffer is appended with the required
+        amount of lines, if not yet sufficient. The requested part of
+        the line buffer is returned.
+
+        In case the end of file is reached, the remaining line buffer
+        is returned.
+
+        Parameters
+        ----------
+        s : slice of int
+           Line buffer index
+
+        See Also
+        --------
+        readline
+
+        '''
+
+        if isinstance(s, slice):
+            # append buffer to match max slice
+            if s.stop is not None:
+                while s.stop > len(self.lines) and not self.eof:
+                    self.readline()
+            else:
+                logger.warn('Unbound block read, might be missing data.')
+            # append buffer to match min slice
+            if s.start is not None:
+                while s.start >= len(self.lines) and not self.eof:
+                    self.readline()
+        elif isinstance(s, int):
+            # append buffer to match index
+            while s >= len(self.lines) and not self.eof:
+                self.readline()
+        else:
+            raise KeyError('Block definition should be numeric')
+
+        if self.eof:
+            return self.lines
+        else:
+            return self.lines[s]
+
+    
+    def __add__(self, n):
+        '''Alternative to `advance` method
+
+        See Also
+        --------
+        advance
+
+        '''
+        
+        self.advance(n=n)
+        
+        
+    @classmethod
+    def open(cls, filename):
+        '''Class method to instantiate from file'''
+        return cls(filename)
+
+
+    def close(self):
+        '''Close file pointer'''
+        self.fp.close()
+
+
+    def readline(self, n=1):
+        '''Reads one or more lines from file into line buffer
+
+        Sets end of file indicator, if file end is reached.
+
+        Parameters
+        ----------
+        n : int
+          Number of lines to read
+
+        Returns
+        -------
+        self
+
+        '''
+        
+        for i in range(n):
+            line = self.fp.readline()
+            if line == '':
+                self.eof = True
+                break
+            else:
+                self.eof = False
+                self.lines.append(line.rstrip('\n'))
+        return self
+
+
+    def advance(self, n=1):
+        '''Advances line pointer
+
+        Parameters
+        ----------
+        n : int
+          Number of lines to advance
+
+        '''
+        
+        self.n += n
+        self.lines = self.lines[n:]
+
+    
+    def read_block(self):
+        '''Reads data block
+
+        Data blocks are expected to start at the second line in the
+        current line buffer. This line contains an integer indicating
+        the size of the data block. The line pointer is automatically
+        advanced with the number of lines in the block, plus one for
+        the size integer.
+
+        See Also
+        --------
+        read_blockbody
+
+        '''
+
+        m = re.match('\s*(\d+)', self[1])
+        if m:
+            n = int(m.groups()[0])
+        else:
+            raise ValueError('Length of block not understood: %s' % self[1])
+
+        self.advance()
+
+        return self.read_blockbody(n)
+
+
+    def read_blockbody(self, n):
+        '''Reads data in block given the block size
+
+        Parameters
+        ----------
+        n : int
+          Number of lines in block
+
+        Returns
+        -------
+        list
+          Data from block
+
+        See Also
+        --------
+        read_block
+
+        '''
+
+        block = []
+        for i in range(n):
+            arr = re.split('\s+', self[1+i].strip())
+            arr = tuple([float(x) for x in arr])
+            block.append(arr)
+
+        self.advance(n)
+
+        return block
+
+    
 class SwanSpcReader:
 
 
@@ -74,15 +302,15 @@ class SwanSpcReader:
         
     def readfile(self, fpath):
 
-        with open(fpath, 'r') as fp:
-            self.lines = fp.readlines()
+        self.lines = SwanBlockReader.open(fpath)
 
-        self.n = 0 # line counter
-        while self.n < len(self.lines):
+        while True:
 
-            line = self._currentline()
+            line = self.lines[0]
 
-            if line.startswith('$'):
+            if self.lines.eof:
+                break
+            elif line.startswith('$'):
                 self.parse_comments()
             elif line.startswith('SWAN'):
                 self.parse_version()
@@ -113,12 +341,16 @@ class SwanSpcReader:
                 self.parse_data()
             elif line.startswith('NODATA'):
                 self.parse_nodata()
+            elif line.startswith('ZERO'):
+                self.parse_nodata(fill_value=0.)
             elif re.match('\s*[\d\.]+', line):
                 self.parse_timestamp()
             else:
                 logging.warn('Line not parsed: %s' % line)
 
-            self.n += 1
+            self.lines.advance()
+
+        self.lines.close()
 
 
     def to_oceanwaves(self):
@@ -173,13 +405,11 @@ class SwanSpcReader:
 
             
     def parse_comments(self):
-        line = self._currentline()
-        self.comments.append(line[1:].strip())
+        self.comments.append(self.lines[0][1:].strip())
 
 
     def parse_version(self):
-        line = self._currentline()
-        m = re.match('SWAN\s+([^\s]+)', line)
+        m = re.match('SWAN\s+([^\s]+)', self.lines[0])
         if m:
             version = m.groups()[0]
             self._check_if_matches(self.version, version,
@@ -188,20 +418,18 @@ class SwanSpcReader:
 
 
     def parse_time(self):
-        lines = self._currentlines()
-        m = re.match('\s*([^\s]+)', lines[1])
+        m = re.match('\s*([^\s]+)', self.lines[1])
         if m:
             timecoding = m.groups()[0]
             self._check_if_matches(self.timecoding, timecoding,
                                    errormsg='Timecoding mismatch')
             self.timecoding = timecoding
             self.stationary = False
-            self.n += 1
+            self.lines.advance()
 
 
     def parse_locations(self):
-        lines = self._currentlines()
-        locations = self._parse_block(lines[1:])
+        locations = self.lines.read_block()
         if not self.stationary:
             self._check_if_matches(self.locations, locations,
                                    errormsg='Location dimension mismatch')
@@ -211,16 +439,14 @@ class SwanSpcReader:
 
 
     def parse_frequencies(self):
-        lines = self._currentlines()
-        frequencies = np.asarray(self._parse_block(lines[1:])).flatten()
+        frequencies = np.asarray(self.lines.read_block()).flatten()
         self._check_if_matches(self.frequencies, frequencies,
                                errormsg='Frequency dimension mismatch')
         self.frequencies = frequencies
 
 
     def parse_directions(self):
-        lines = self._currentlines()
-        directions = np.asarray(self._parse_block(lines[1:])).flatten()
+        directions = np.asarray(self.lines.read_block()).flatten()
         self._check_if_matches(self.directions, directions,
                                errormsg='Direction dimension mismatch')
         self.directions = directions
@@ -228,19 +454,19 @@ class SwanSpcReader:
 
 
     def parse_quantities(self):
-        lines = self._currentlines()
-
-        m = re.match('\s*(\d+)', lines[1])
+        m = re.match('\s*(\d+)', self.lines[1])
         if m:
             n = int(m.groups()[0])
         else:
-            raise ValueError('Number of quantities not understood: %s' % lines[1])
+            raise ValueError('Number of quantities not understood: %s' % self.lines[1])
+
+        self.lines.advance()
 
         self.specs = OrderedDict()
         for i in range(n):
             q = []
             for j in range(3):
-                m = re.match('\s*([^\s]+)', lines[2+3*i+j])
+                m = re.match('\s*([^\s]+)', self.lines[1+j])
                 if m:
                     q.append(m.groups()[0])
 
@@ -249,39 +475,38 @@ class SwanSpcReader:
             else:
                 logging.warn('Skipped invalid quantity definiton: %s' % ' '.join(q))
 
-        self.n += 1 + 3*n
+            self.lines.advance(3)
 
 
     def parse_data(self):
-        lines = self._currentlines()
-
-        key = lines.pop(0)
-        if key.startswith('FACTOR'):
-            factor = lines.pop(0)
+        if self.lines[0].startswith('FACTOR'):
+            factor = self.lines[1]
             m = re.match('\s*([\+\-\d\.Ee]+)\s*$', factor)
             if m:
                 f = float(m.groups()[0])
             else:
                 raise ValueError('Factor not understood: %s' % factor)
 
-            self.n += 1
+            self.lines.advance()
         else:
             f = 1.
 
         n = len(self.frequencies)
-        q = np.asarray(self._parse_blockbody(lines, n)) * f
+        q = np.asarray(self.lines.read_blockbody(n)) * f
         if self.stationary:
             self.quantities.append(q)
         else:
             self.quantities[-1].append(q)
 
 
-    def parse_nodata(self):
+    def parse_nodata(self, fill_value=np.nan):
         if self.directional:
             q = np.zeros((len(self.frequencies),
                           len(self.directions)))
         else:
             q = np.zeros((len(self.frequencies), 3))
+
+        q += fill_value
 
         if self.stationary:
             self.quantities.append(q)
@@ -290,40 +515,12 @@ class SwanSpcReader:
 
 
     def parse_timestamp(self):
-        line = self._currentline()
-
-        m = re.match('\s*([\d\.]+)', line)
+        m = re.match('\s*([\d\.]+)', self.lines[0])
         if m:
             self.time.append(datetime.strptime(m.groups()[0], SWAN_TIME_FORMAT))
             self.quantities.append([])
         else:
-            raise ValueError('Time definition not understood: %s' % line)
-
-
-    def _parse_block(self, lines):
-
-        m = re.match('\s*(\d+)', lines[0])
-        if m:
-            n = int(m.groups()[0])
-        else:
-            raise ValueError('Length of block not understood: %s' % lines[0])
-
-        self.n += 1
-
-        return self._parse_blockbody(lines[1:], n)
-
-
-    def _parse_blockbody(self, lines, n):
-
-        block = []
-        for i in range(n):
-            arr = re.split('\s+', lines[i].strip())
-            arr = tuple([float(x) for x in arr])
-            block.append(arr)
-
-        self.n += n
-
-        return block
+            raise ValueError('Time definition not understood: %s' % self.lines[0])
 
 
     def _check_if_matches(self, current, new, errormsg='Dimension mismatch'):
@@ -343,14 +540,6 @@ class SwanSpcReader:
                 return
 
         raise ValueError(errormsg)
-
-
-    def _currentline(self):
-        return self.lines[self.n]
-
-
-    def _currentlines(self):
-        return self.lines[self.n:]
 
 
 class SwanSpcWriter:
@@ -619,6 +808,7 @@ class SwanTableReader:
                       location_vars=['Xp','Yp'], period_var='RTpeak',
                       frequency_var=None, direction_var='Dir',
                       energy_var='Hsig', **kwargs):
+
         '''Converts raw data in OceanWaves object
 
         Converts raw data and column names into Pandas
