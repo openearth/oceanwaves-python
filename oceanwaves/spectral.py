@@ -37,6 +37,12 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     
     '''
 
+    # update the input data types to avoid the following error:
+    # ValueError: Integers to negative integer powers are not allowed.
+    f = f.astype(np.float)
+    Hm0 = Hm0.astype(np.float)
+    Tp = Tp.astype(np.float)
+
     # Pierson-Moskowitz
     if method.lower() == 'yamaguchi':
         alpha = 1. / (.06533 * gamma ** .8015 + .13467) / 16.
