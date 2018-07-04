@@ -49,13 +49,8 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     if 0.0 in f:
         warn("frequency array constains zeros.")
 
-    # get the frequency array dtype and promote to float 64, if
-    # needed
-    if type(f) != np.ndarray:
-        raise ValueError("\"f\" must of type numpy.ndarray.")
-        f = _check_dtype(f)
-
     # get the input dtypes and promote to float 64, if needed
+    f = _check_dtype(f)
     Hm0 = _check_dtype(Hm0)
     Tp = _check_dtype(Tp)
 
