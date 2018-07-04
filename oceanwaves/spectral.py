@@ -46,8 +46,8 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     # raise an warning if the frequency array starts with zero. if the
     # user gives an array with zeros, the output will be inf at that
     # frequency
-    if f[0] == 0.0:
-        warn("frequency array starts with zero.")
+    if 0.0 in f:
+        warn("frequency array constains zeros.")
 
     # get the frequency array dtype and promote to float 64, if
     # needed
