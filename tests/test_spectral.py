@@ -5,6 +5,7 @@ from oceanwaves.spectral import *
 FREQ = np.arange(0, 1, .05)[1:]
 THETA = np.arange(0, 180, 5)
 
+
 def test_jonswap_1():
     '''Test computation of jonswap spectrum following Yamaguchi'''
     E = jonswap(FREQ, Hm0=1., Tp=4., method='yamaguchi',
@@ -18,6 +19,14 @@ def test_jonswap_2():
     E = jonswap(FREQ, Hm0=1., Tp=4., method='goda', normalize=True)
     assert_almost_equals(np.trapz(E, FREQ), 1/16.)
     assert_almost_equals(FREQ[np.argmax(E)], 1/4.)
+
+
+def test_jonswap_with_arrays():
+    '''Test computation of jonswap spectrum using arrays as input'''
+    E = jonswap(FREQ, Hm0=np.array([1.0, 1.0]), Tp=np.array([4.0, 4.0]),
+                method='goda', normalize=True)
+    assert_equal(E.ndim, 2)
+    assert_equal(E.shape[1], 2)
 
 
 @raises(ValueError)

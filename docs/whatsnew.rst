@@ -36,7 +36,7 @@ New functions/methods
 Bug fixes
 ^^^^^^^^^
 
-* Store comments from SWAN spectrum files as single string intead of a
+* Store comments from SWAN spectrum files as single string instead of a
   list of strings as the scipy netcdf I/O cannot cope with lists of
   strings.
 
@@ -48,7 +48,12 @@ Bug fixes
 
 * Do not squeeze energy matrix as that may cause conflicts with
   dimensions of length unity. Instead, reshape the energy matrix to
-  the approriate size.
+  the appropriate size.
+
+* Fix a datatype bug in spectral.jonswap() that raised `ValueError:
+  Integers to negative integer powers are not allowed` in the case Hm0 or Tp
+  were integers. Also modify spectral.jonswap() to accept arrays as inputs
+  for Hm0 and Tp. Only one-dimensional arrays for now. - Caio Stringari
 
 Tests
 ^^^^^
