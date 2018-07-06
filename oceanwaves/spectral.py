@@ -4,7 +4,8 @@ import numpy as np
 
 from oceanwaves.utils import *
 
-from warnings import warn
+import logging
+logger = logging.getLogger(__name__)
 
 
 def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
@@ -47,23 +48,25 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     # user gives an array with zeros, the output will be inf at that
     # frequency
     if 0.0 in f:
-        warn("frequency array constains zeros.")
+        logger.warn('Frequency array contains zeros.')
 
-    # get the input dtypes and promote to float 64, if needed
-    f = _check_dtype(f)
-    Hm0 = _check_dtype(Hm0)
-    Tp = _check_dtype(Tp)
+    # get the input dtypes and promote to float, if needed
+    f = ensure_float(f)
+    Hm0 = ensure_float(Hm0)
+    Tp = ensure_float(Tp)
 
-    # check shapes of Hm0 and Tp
-    if type(Hm0) == np.ndarray:
-        if Hm0.shape != Tp.shape:
-            raise ValueError("Dimensions of Hm0 and Tp should match.")
+    # check shapes of Hm0 and Tp, raise an error if the don't match
+    if isinstance(Hm0, np.ndarray):
+        if isinstance(Tp, np.ndarray):
+            if Hm0.shape != Tp.shape:
+                raise ValueError("Dimensions of Hm0 and Tp should match.")
 
     # This is a very naive implementation to deal with array inputs,
-    # but will work if Hm0 and Tp are vectors. I don't know how to expand
-    # the array to N dimensions nicely - C. Stringari
-    if type(Hm0) == np.ndarray:
-            f = np.repeat(f, Hm0.shape[0]).reshape([len(f), Hm0.shape[0]])
+    # but will work if Hm0 and Tp are vectors.
+    if isinstance(Hm0, np.ndarray):
+        f = f[:, np.newaxis].repeat(len(Hm0), axis=1)
+        Hm0 = Hm0[np.newaxis, :].repeat(len(f), axis=0)
+        Tp = Tp[np.newaxis, :].repeat(len(f), axis=0)
 
     # Pierson-Moskowitz
     if method.lower() == 'yamaguchi':
@@ -82,11 +85,8 @@ def jonswap(f, Hm0, Tp, gamma=3.3, sigma_low=.07, sigma_high=.09,
     E_js = E_pm * gamma**np.exp(-0.5 * (Tp * f - 1)**2. / sigma**2.)
 
     if normalize:
-        if type(Hm0) == np.ndarray:
-            # axis=-1 with an array return all infs
-            E_js *= Hm0**2. / (16. * trapz_and_repeat(E_js, f, axis=0))
-        else:
-            E_js *= Hm0**2. / (16. * trapz_and_repeat(E_js, f, axis=-1))
+        # axis=0 seems to work fine with all kinds of inputs
+        E_js *= Hm0**2. / (16. * trapz_and_repeat(E_js, f, axis=0))
 
     return E_js
 
@@ -145,7 +145,7 @@ def directional_spreading(theta, theta_peak=0., s=20., units='deg',
     return p_theta
 
 
-def _check_dtype(var):
+def ensure_float(var):
     '''
     Auxiliary function to detect and fix dtypes, if needed
 
@@ -157,17 +157,17 @@ def _check_dtype(var):
     Returns
     -------
     var : numpy.ndarray
-       The same as the input but either as a float or a array of floats
+       The same as the input but either as a float or an array of floats
     '''
     # fist, if it's a list, convert to a numpy.ndarray
-    if type(var) == list:
+    if isinstance(var, list):
         var = np.array(var)
     # if it's an np.ndarray(), make sure it's a array of floats
-    elif type(var) == np.ndarray:
-        if var.dtype != np.dtype('float64'):
-            var = var.astype(np.float64)
+    elif isinstance(var, np.ndarray):
+        if var.dtype != np.dtype('float'):
+            var = var.astype(np.float)
     # if it's a float, well, do nothing
-    elif type(var) == float:
+    elif isinstance(var, float):
         var = var
     # unknown data type
     else:
