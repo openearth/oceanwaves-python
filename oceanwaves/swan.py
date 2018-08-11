@@ -501,8 +501,17 @@ class SwanSpcReader:
         else:
             f = 1.
 
-        n = len(self.frequencies)
-        q = np.asarray(self.lines.read_blockbody(n)) * f
+        if len(self.directions)<= 200:
+            n = len(self.frequencies)
+            q = np.asarray(self.lines.read_blockbody(n), dtype=np.float64) * f
+        else:
+            n = int(np.ceil(len(self.directions)/200))*len(self.frequencies)
+            temp = self.lines.read_blockbody(n)
+            temp_q=[]
+            for ii in range(len(self.frequencies)):
+                temp_q.append(temp[2*ii]+temp[2*ii+1])
+            q = np.asarray(temp_q, dtype=np.float64) * f
+            
         if self.stationary:
             self.quantities.append(q)
         else:
