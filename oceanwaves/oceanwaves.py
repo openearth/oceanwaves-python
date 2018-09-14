@@ -48,7 +48,7 @@ class OceanWaves(xr.Dataset):
     result to practical entities.
 
     The class provides two plotting routines: 1) plotting of spectral
-    wave data in a raster of subplots and 2) plotting of spectral wabe
+    wave data in a raster of subplots and 2) plotting of spectral wave
     data on a map.
 
     The class supports all convenient properties of an xarray.Dataset,
